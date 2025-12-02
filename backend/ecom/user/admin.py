@@ -1,7 +1,5 @@
-from django.contrib import admin
-from .models import ClothProduct,JewelleryProduct, Order
+# from django.contrib import admin
+# from .models import Order
 
 
-admin.site.register(ClothProduct)
-admin.site.register(JewelleryProduct)
-admin.site.register(Order)
+# admin.site.register(Order)
