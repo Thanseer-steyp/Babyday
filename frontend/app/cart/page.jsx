@@ -50,7 +50,7 @@ export default function CartPage() {
             <div className="flex-1">
               <h2 className="font-semibold text-lg text-black">{item.title}</h2>
               <p className="text-gray-600">₹ {item.price}</p>
-              <p className="text-gray-600">{item.size}</p>
+              <p className="text-gray-600">Selected size: {item.size}</p>
             </div>
 
             {/* Remove */}
