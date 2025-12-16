@@ -1,25 +1,16 @@
 from rest_framework import serializers
-from product.models import Product, Cloth, Jewellery
+from public.models import Product
+from django.utils.text import slugify
 
-# Serializer for Product (common fields)
 class ProductSerializer(serializers.ModelSerializer):
+    slug = serializers.SerializerMethodField()
+
+    
     class Meta:
         model = Product
-        fields = '__all__'  # includes all fields from the model
-        read_only_fields = ['slug'] 
-
-# Serializer for Cloth (including sizes)
-class ClothSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-    
-    class Meta:
-        model = Cloth
         fields = '__all__'
+        
 
-# Serializer for Jewellery (including material)
-class JewellerySerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-    
-    class Meta:
-        model = Jewellery
-        fields = '__all__'
+    def get_slug(self, obj):
+        # Generate slug dynamically from title
+        return slugify(obj.title)

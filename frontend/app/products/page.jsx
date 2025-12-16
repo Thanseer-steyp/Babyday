@@ -1,101 +1,100 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import axiosInstance, { mediaBaseURL } from "@/components/config/AxiosInstance";
+import axios from "axios";
 import Link from "next/link";
 
-const ProductList = () => {
+export default function ProductsPage() {
   const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [categories, setCategories] = useState(["all"]);
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    // Fetch all products
-    axiosInstance
-      .get("public/products/")
-      .then((res) => {
-        setProducts(res.data);
-        setFilteredProducts(res.data);
-
-        // Extract unique categories from products
-        const cats = Array.from(
-          new Set(res.data.map((p) => p.category.toLowerCase()))
+    const fetchProducts = async () => {
+      try {
+        const res = await axios.get(
+          "http://localhost:8000/api/v1/public/products/"
         );
-        setCategories(["all", ...cats]);
+        setProducts(res.data);
+        console.log(res.data)
+      } catch (err) {
+        setError(err.response?.data || err.message || "Failed to fetch");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
+    fetchProducts();
   }, []);
 
-  const handleCategoryFilter = (category) => {
-    setActiveCategory(category);
-    if (category === "all") {
-      setFilteredProducts(products);
-    } else {
-      setFilteredProducts(
-        products.filter((p) => p.category.toLowerCase() === category)
-      );
-    }
-  };
-
-  if (loading)
+  if (loading) {
     return (
-      <p className="text-center mt-10 text-gray-500">Loading products...</p>
+      <div className="min-h-screen flex items-center justify-center text-lg">
+        Loading products...
+      </div>
     );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-red-500">
+        {error}
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 text-center">Products</h1>
+    <div className="min-h-screen bg-gray-100 p-6">
+      <h1 className="text-3xl font-bold text-center mb-8 text-black">Products</h1>
 
-      {/* Category Filter Buttons */}
-      <div className="flex justify-center mb-6 gap-4 flex-wrap">
-        {categories.map((category) => (
-          <button
-            key={category}
-            onClick={() => handleCategoryFilter(category)}
-            className={`px-4 py-2 rounded-full font-semibold transition ${
-              activeCategory === category
-                ? "bg-blue-500 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-          >
-            {category.charAt(0).toUpperCase() + category.slice(1)}
-          </button>
-        ))}
-      </div>
+      {products.length === 0 ? (
+        <p className="text-center text-gray-500">No products available</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6">
+          {products.map((product) => (
+            <div
+              key={product.id}
+              className="bg-white rounded-xl shadow hover:shadow-lg transition p-4"
+            >
+              {product.image1 && (
+                <img
+                  src={product.image1}
+                  alt={product.title}
+                  className="h-48 w-full object-cover rounded-lg mb-4"
+                />
+              )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {filteredProducts.map((product) => (
-          <div
-            key={product.id}
-            className="border rounded-lg shadow hover:shadow-lg transition p-4 flex flex-col"
-          >
-            <img
-              src={`${mediaBaseURL}${product.image_main}`}
-              alt={product.name}
-              className="w-full h-96 object-cover rounded-lg shadow"
-            />
+              <h2 className="text-lg font-semibold mb-1 text-black">{product.title}</h2>
 
-            <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
-            <p className="text-gray-700 mb-1">Price: ${product.price}</p>
-            <p className="text-gray-500 mb-3 capitalize">
-              Category: {product.category}
-            </p>
-            <Link href={`/products/${product.slug}`}>
-              <span className="mt-auto bg-blue-500 text-white text-center py-2 px-4 rounded hover:bg-blue-600 transition inline-block">
-                View Details
-              </span>
-            </Link>
-          </div>
-        ))}
-      </div>
+              <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                {product.age_limits || product.pattern_design}
+              </p>
+
+              <p className="text-xl font-bold text-green-600">
+                ₹ {product.price}
+              </p>
+
+              {product.available_sizes?.length > 0 && (
+                <div className="my-2 flex flex-wrap gap-2">
+                  {product.available_sizes.map((size) => (
+                    <span
+                      key={size}
+                      className="px-2 py-1 border rounded text-sm bg-gray-300 text-black"
+                    >
+                      {size}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <Link
+              key={product.id}
+              href={`/products/${product.slug}`}
+              className="bg-white shadow hover:shadow-lg transition p-1 block text-black border border-black w-max"
+            >View</Link>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
-};
-
-export default ProductList;
+}

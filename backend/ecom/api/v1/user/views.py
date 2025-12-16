@@ -1,5 +1,3 @@
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
 # from rest_framework.permissions import IsAuthenticated
 # from django.conf import settings
 # import razorpay
@@ -63,36 +61,40 @@
 #         return Response({"message": "Payment verified"})
 
 
+# views.py
+from django.utils.text import slugify
 
-
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
-from user.models import Cart
-from product.models import Product
-from .serializers import CartSerializer
 
-class CartListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        items = Cart.objects.filter(user=request.user)
-        serializer = CartSerializer(items, many=True)
-        return Response(serializer.data, status=200)
+from user.models import Cart,Wishlist
+from public.models import Product
+from .serializers import CartSerializer,WishlistSerializer
 
 
+# views.py
 class AddToCartView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, product_id):
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return Response({"error": "Product not found"}, status=404)
+    def post(self, request, slug):
+        size = request.data.get("size")  # get selected size
+        if not size:
+            return Response({"message": "Size is required"}, status=400)
+
+        product = None
+        for p in Product.objects.filter(is_available=True):
+            if slugify(p.title) == slug:
+                product = p
+                break
+
+        if not product:
+            return Response({"detail": "Product not found"}, status=404)
 
         cart_item, created = Cart.objects.get_or_create(
-            user=request.user, product=product
+            user=request.user,
+            product=product,
+            size=size  # store size
         )
 
         if not created:
@@ -102,15 +104,84 @@ class AddToCartView(APIView):
         return Response({"message": "Added to cart"}, status=200)
 
 
+
 class RemoveFromCartView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def delete(self, request, product_id):
-        try:
-            cart_item = Cart.objects.get(user=request.user, product__id=product_id)
-        except Cart.DoesNotExist:
-            return Response({"error": "Item not in cart"}, status=404)
+    def delete(self, request, slug):
+        product = None
+        for p in Product.objects.all():
+            if slugify(p.title) == slug:
+                product = p
+                break
 
-        cart_item.delete()
+        if not product:
+            return Response({"detail": "Product not found"}, status=404)
 
+        Cart.objects.filter(user=request.user, product=product).delete()
         return Response({"message": "Removed from cart"}, status=200)
+
+
+class CartListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        cart_items = Cart.objects.filter(user=request.user)
+        serializer = CartSerializer(cart_items, many=True, context={"request": request})
+        return Response(serializer.data, status=200)
+
+
+
+
+
+
+class AddToWishlistView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, slug):
+        # Look for product manually instead of get_object_or_404
+        product = None
+        for p in Product.objects.all():
+            if slugify(p.title) == slug:
+                product = p
+                break
+
+        if not product:
+            return Response({"message": "Product not found"}, status=400)
+
+        # Create wishlist entry
+        Wishlist.objects.get_or_create(user=request.user, product=product)
+        return Response({"message": "Added to wishlist"}, status=200)
+
+
+class RemoveFromWishlistView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, slug):
+        # Look for product manually
+        product = None
+        for p in Product.objects.all():
+            if slugify(p.title) == slug:
+                product = p
+                break
+
+        if not product:
+            return Response({"message": "Product not found"}, status=400)
+
+        # Remove from wishlist
+        Wishlist.objects.filter(user=request.user, product=product).delete()
+        return Response({"message": "Removed from wishlist"}, status=200)
+    
+
+
+class WishlistListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        products = Product.objects.filter(
+            wishlist__user=request.user
+        )
+        serializer = WishlistSerializer(
+            products, many=True, context={"request": request}
+        )
+        return Response(serializer.data)

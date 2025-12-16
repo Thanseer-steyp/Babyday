@@ -26,7 +26,7 @@ INSTALLED_APPS = [
     'register',
     'user',
     'api',
-    'product',
+    'public',
 ]
 
 

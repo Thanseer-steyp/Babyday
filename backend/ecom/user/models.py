@@ -30,51 +30,35 @@
 #         return Jewellery.objects.get(id=self.product_id)
 
 
-# class Cart(models.Model):
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     product_type = models.CharField(max_length=20,null=True)  # cloth, jewellery
-#     product_id = models.PositiveIntegerField(null=True)
-#     quantity = models.PositiveIntegerField(default=1)
-
-#     def __str__(self):
-#         return f"{self.user} - Cart Item"
-    
-#     def get_product(self):
-#         if self.product_type == "cloth":
-#             return Cloth.objects.get(id=self.product_id)
-#         return Jewellery.objects.get(id=self.product_id)
-    
-
-
-
-# class Wishlist(models.Model):
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     product_type = models.CharField(max_length=20,null=True)
-#     product_id = models.PositiveIntegerField(null=True)
-
-#     def __str__(self):
-#         return f"{self.user} - Wishlist Item"
-    
-#     def get_product(self):
-#         if self.product_type == "cloth":
-#             return Cloth.objects.get(id=self.product_id)
-#         return Jewellery.objects.get(id=self.product_id)
-
-
-
 
 
 from django.db import models
 from django.contrib.auth.models import User
-from product.models import Product
+from public.models import Product
+
 
 class Cart(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="cart")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="cart_items")
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
+    size = models.CharField(max_length=10, blank=True, null=True)  # new field
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('user', 'product')
+        unique_together = ('user', 'product', 'size')  # unique per size
 
     def __str__(self):
-        return f"{self.user.username} - {self.product.name} ({self.quantity})"
+        return f"{self.user.username} - {self.product.title} ({self.size})"
+
+
+
+class Wishlist(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="wishlist")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "product")
+
+    def __str__(self):
+        return f"{self.user} - {self.product}"
