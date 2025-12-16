@@ -74,22 +74,11 @@ export default function ProductsPage() {
                 ₹ {product.price}
               </p>
 
-              {product.available_sizes?.length > 0 && (
-                <div className="my-2 flex flex-wrap gap-2">
-                  {product.available_sizes.map((size) => (
-                    <span
-                      key={size}
-                      className="px-2 py-1 border rounded text-sm bg-gray-300 text-black"
-                    >
-                      {size}
-                    </span>
-                  ))}
-                </div>
-              )}
+
               <Link
               key={product.id}
               href={`/products/${product.slug}`}
-              className="bg-white shadow hover:shadow-lg transition p-1 block text-black border border-black w-max"
+              className="bg-white shadow hover:shadow-lg transition p-1 block text-black border border-black mt-2 text-center"
             >View</Link>
             </div>
           ))}

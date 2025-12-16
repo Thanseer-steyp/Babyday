@@ -12,5 +12,4 @@ class ProductSerializer(serializers.ModelSerializer):
         
 
     def get_slug(self, obj):
-        # Generate slug dynamically from title
         return slugify(obj.title)

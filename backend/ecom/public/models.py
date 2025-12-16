@@ -1,14 +1,6 @@
 from django.db import models
 
 
-# 🔹 Reusable size choices (used by admin & serializers)
-# SIZE_CHOICES = [
-#     ('S', 'Small'),
-#     ('M', 'Medium'),
-#     ('L', 'Large'),
-#     ('FREE', 'Free Size'),
-# ] + [(f"{i}-{i+1}", f"{i}-{i+1}") for i in range(0, 15)]
-
 SIZE_CHOICES = [
     ('S', 'Small'), ('M', 'Medium'), ('L', 'Large'), ('FREE', 'Free Size'),
     ('0-1', '0-1'), ('1-2', '1-2'), ('2-3', '2-3'), ('3-4', '3-4'),
@@ -16,7 +8,6 @@ SIZE_CHOICES = [
     ('8-9', '8-9'), ('9-10', '9-10'), ('10-11', '10-11'), ('11-12', '11-12'),
     ('12-13', '12-13'), ('13-14', '13-14'), ('14-15', '14-15'),
 ]
-
 
 class Product(models.Model):
 

@@ -132,6 +132,55 @@ class CartListView(APIView):
 
 
 
+class UpdateCartQtyView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, slug):
+        action = request.data.get("action")  # "increase" or "decrease"
+
+        if action not in ["increase", "decrease"]:
+            return Response(
+                {"detail": "Invalid action"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # find product by slug
+        product = None
+        for p in Product.objects.filter(is_available=True):
+            if slugify(p.title) == slug:
+                product = p
+                break
+
+        if not product:
+            return Response({"detail": "Product not found"}, status=404)
+
+        cart_item = Cart.objects.filter(
+            user=request.user,
+            product=product
+        ).first()
+
+        if not cart_item:
+            return Response(
+                {"detail": "Item not in cart"},
+                status=404
+            )
+
+        # quantity logic (min=1, max=3)
+        if action == "increase" and cart_item.quantity < 3:
+            cart_item.quantity += 1
+
+        elif action == "decrease" and cart_item.quantity > 1:
+            cart_item.quantity -= 1
+
+        cart_item.save()
+
+        return Response(
+            {
+                "message": "Quantity updated",
+                "qty": cart_item.quantity
+            },
+            status=200
+        )
 
 
 

@@ -21,10 +21,10 @@ export default function Header() {
             Products
           </Link>
           <Link
-            href="/about"
+            href="/admin"
             className="text-gray-700 hover:text-green-600 font-medium"
           >
-            About
+            Admin
           </Link>
           <Link
             href="/contact"

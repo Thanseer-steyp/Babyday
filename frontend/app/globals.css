@@ -392,3 +392,7 @@ input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
+.input {
+  @apply border p-2 rounded w-full;
+}

@@ -27,16 +27,13 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      const res = await axios.get(
-        "http://localhost:8000/api/v1/user/cart/",
-        {
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-          },
-        }
-      );
+      const res = await axios.get("http://localhost:8000/api/v1/user/cart/", {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
       setCartItems(res.data);
-      console.log(res.data)
+      console.log(res.data);
     } catch (err) {
       console.error("Cart fetch failed");
       setCartItems([]);
@@ -54,22 +51,19 @@ export const CartProvider = ({ children }) => {
     }
   }, [token]);
 
-
-
   const addToCart = async (slug, size) => {
     if (!token) throw new Error("Not authenticated");
-  
+
     await axios.post(
       `http://localhost:8000/api/v1/user/cart/add/${slug}/`,
-      { size },  // send size
+      { size }, // send size
       {
         headers: { Authorization: `Bearer ${token}` },
       }
     );
-  
+
     fetchCart(token); // refresh cart
   };
-  
 
   // Remove from cart
   const removeFromCart = async (slug) => {
@@ -87,13 +81,31 @@ export const CartProvider = ({ children }) => {
     fetchCart(token);
   };
 
+  const updateQty = async (slug, action) => {
+    if (!token) return;
+
+    await axios.patch(
+      `http://localhost:8000/api/v1/user/cart/update/${slug}/`,
+      { action }, // "increase" | "decrease"
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    fetchCart(token);
+  };
+
   return (
     <CartContext.Provider
       value={{
         cartItems,
-        cartCount: cartItems.length,
+        cartCount: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+
         addToCart,
         removeFromCart,
+        updateQty,
         loading,
         token,
       }}
