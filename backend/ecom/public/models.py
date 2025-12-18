@@ -60,8 +60,11 @@ class Product(models.Model):
     )
 
     age_limits = models.TextField(
+        blank=True,
+        null=True,
         help_text="Example: Suitable for kids aged 4 to 7 years"
     )
+
 
     is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

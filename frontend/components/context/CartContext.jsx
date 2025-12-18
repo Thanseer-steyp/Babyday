@@ -33,7 +33,6 @@ export const CartProvider = ({ children }) => {
         },
       });
       setCartItems(res.data);
-      console.log(res.data);
     } catch (err) {
       console.error("Cart fetch failed");
       setCartItems([]);

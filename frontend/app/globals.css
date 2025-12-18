@@ -394,5 +394,5 @@ input::-webkit-inner-spin-button {
 }
 
 .input {
-  @apply border p-2 rounded w-full;
+  @apply w-full border rounded px-3 py-2 text-black;
 }

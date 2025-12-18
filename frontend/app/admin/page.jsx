@@ -1,40 +1,90 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import axios from "axios";
+import { useEffect, useState } from "react";
 
-const API_BASE = "http://localhost:8000/api/v1/public";
+const AGE_CHOICES = [
+  "kids_boy",
+  "kids_girl",
+  "kids_unisex",
+  "adults_men",
+  "adults_women",
+  "adults_unisex",
+  "all_age_men",
+  "all_age_women",
+  "all_age_unisex",
+];
 
+const AGE_LABELS = {
+  kids_boy: "Kids (Boys)",
+  kids_girl: "Kids (Girls)",
+  kids_unisex: "Kids (Unisex)",
+  adults_men: "Adults (Men)",
+  adults_women: "Adults (Women)",
+  adults_unisex: "Adults (Unisex)",
+  all_age_men: "All-Age (Men)",
+  all_age_women: "All-Age (Women)",
+  all_age_unisex: "All-Age (Unisex)",
+};
+
+const PRODUCT_CATEGORIES = ["cloth", "jewellery"];
+
+const SIZE_CHOICES = [
+  "S",
+  "M",
+  "L",
+  "FREE",
+  "0-1",
+  "1-2",
+  "2-3",
+  "3-4",
+  "4-5",
+  "5-6",
+  "6-7",
+  "7-8",
+  "8-9",
+  "9-10",
+  "10-11",
+  "11-12",
+  "12-13",
+  "13-14",
+  "14-15",
+];
+
+/* ================= PAGE ================= */
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([]);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState(initialForm());
-  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({});
+  const [images, setImages] = useState({});
 
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("access")
-      : null;
-
-  /* ---------------- FETCH PRODUCTS ---------------- */
-  const fetchProducts = async () => {
+  // 👇 define it OUTSIDE useEffect
+  const loadProducts = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/products/`);
+      const res = await axios.get(
+        "http://localhost:8000/api/v1/manager/products/",
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access")}`,
+          },
+        }
+      );
       setProducts(res.data);
-    } catch (err) {
-      console.error("Failed to fetch products");
-    } finally {
-      setLoading(false);
+      console.log(res.data);
+    } catch (error) {
+      console.error("Failed to load products:", error);
     }
   };
 
   useEffect(() => {
-    fetchProducts();
+    loadProducts();
   }, []);
 
-  /* ---------------- FORM HANDLERS ---------------- */
-  function initialForm() {
-    return {
+  /* ---------- FORM ---------- */
+  const openCreate = () => {
+    setEditing(null);
+    setForm({
       title: "",
       age_category: "",
       product_category: "",
@@ -44,190 +94,365 @@ export default function AdminProductsPage() {
       material_type: "",
       fit_type: "",
       pattern_design: "",
-      available_sizes: [],
       age_limits: "",
+      available_sizes: [],
       is_available: true,
-      image1: null,
-      image2: null,
-      image3: null,
-      image4: null,
-    };
-  }
+    });
+    setImages({});
+    setOpen(true);
+  };
 
-  const handleChange = (e) => {
-    const { name, value, type, files } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "file" ? files[0] : value,
+  const openEdit = (product) => {
+    setEditing(product);
+    setForm({
+      title: product.title || "",
+      age_category: product.age_category || "",
+      product_category: product.product_category || "",
+      mrp: product.mrp || "",
+      price: product.price || "",
+      stock_qty: product.stock_qty || "",
+      material_type: product.material_type || "",
+      fit_type: product.fit_type || "",
+      pattern_design: product.pattern_design || "",
+      age_limits: product.age_limits || "",
+      available_sizes: product.available_sizes || [],
+      is_available: product.is_available ?? true,
+    });
+    setImages({});
+    setOpen(true);
+  };
+
+  const change = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm({ ...form, [name]: type === "checkbox" ? checked : value });
+  };
+
+  const toggleSize = (size) => {
+    setForm({
+      ...form,
+      available_sizes: form.available_sizes.includes(size)
+        ? form.available_sizes.filter((s) => s !== size)
+        : [...form.available_sizes, size],
     });
   };
 
-  /* ---------------- CREATE / UPDATE ---------------- */
-  const submitProduct = async (e) => {
-    e.preventDefault();
-
-    const data = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      if (value !== null) {
-        if (Array.isArray(value)) {
-          data.append(key, JSON.stringify(value));
-        } else {
-          data.append(key, value);
-        }
-      }
-    });
-
+  const save = async () => {
     try {
-      if (editingId) {
+      const data = new FormData();
+
+      Object.entries(form).forEach(([k, v]) => {
+        if (k === "available_sizes") {
+          data.append(k, JSON.stringify(v));
+        } else {
+          data.append(k, v);
+        }
+      });
+
+      Object.entries(images).forEach(([k, v]) => {
+        if (v) data.append(k, v);
+      });
+
+      const headers = {
+        Authorization: `Bearer ${localStorage.getItem("access")}`,
+      };
+
+      if (editing) {
         await axios.patch(
-          `${API_BASE}/products/${editingId}/`,
+          `http://localhost:8000/api/v1/manager/products/${editing.slug}/`,
           data,
-          { headers: authHeaders() }
+          { headers }
         );
       } else {
-        await axios.post(`${API_BASE}/products/`, data, {
-          headers: authHeaders(),
-        });
+        await axios.post(
+          "http://localhost:8000/api/v1/manager/products/",
+          data,
+          { headers }
+        );
       }
 
-      setFormData(initialForm());
-      setEditingId(null);
-      fetchProducts();
+      setOpen(false);
+      loadProducts();
     } catch (err) {
-      alert("Error saving product");
+      console.error(err.response?.data || err.message);
     }
   };
 
-  /* ---------------- EDIT ---------------- */
-  const editProduct = (product) => {
-    setEditingId(product.slug);
-    setFormData({
-      ...product,
-      image1: null,
-      image2: null,
-      image3: null,
-      image4: null,
-    });
+  const remove = async (slug) => {
+    if (!confirm("Delete product?")) return;
+
+    try {
+      await axios.delete(
+        `http://localhost:8000/api/v1/manager/products/${slug}/`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access")}`,
+          },
+        }
+      );
+
+      loadProducts();
+    } catch (error) {
+      console.error("Failed to delete product:", error);
+    }
   };
 
-  /* ---------------- DELETE ---------------- */
-  const deleteProduct = async (slug) => {
-    if (!confirm("Delete this product?")) return;
-
-    await axios.delete(`${API_BASE}/products/${slug}/`, {
-      headers: authHeaders(),
-    });
-
-    fetchProducts();
-  };
-
-  const authHeaders = () => ({
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "multipart/form-data",
-  });
-
-  /* ---------------- UI ---------------- */
-  if (loading) return <p className="p-6">Loading...</p>;
-
+  /* ================= RENDER ================= */
   return (
-    <div className="max-w-7xl mx-auto p-6 text-black">
-      <h1 className="text-3xl font-bold mb-6">Admin Products</h1>
-
-      {/* FORM */}
-      <form
-        onSubmit={submitProduct}
-        className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-6 rounded shadow mb-10 text-black"
-      >
-        <input
-          name="title"
-          placeholder="Title"
-          value={formData.title}
-          onChange={handleChange}
-          className="input"
-          required
-        />
-
-        <input
-          name="price"
-          type="number"
-          placeholder="Price"
-          value={formData.price}
-          onChange={handleChange}
-          className="input"
-        />
-
-        <input
-          name="mrp"
-          type="number"
-          placeholder="MRP"
-          value={formData.mrp}
-          onChange={handleChange}
-          className="input"
-        />
-
-        <input
-          name="stock_qty"
-          type="number"
-          placeholder="Stock"
-          value={formData.stock_qty}
-          onChange={handleChange}
-          className="input"
-        />
-
-        <input
-          name="age_limits"
-          placeholder="Age Limits"
-          value={formData.age_limits}
-          onChange={handleChange}
-          className="input col-span-2"
-        />
-
-        <input name="image1" type="file" onChange={handleChange} />
-        <input name="image2" type="file" onChange={handleChange} />
-
+    <div className="p-6 text-black">
+      {/* HEADER */}
+      <div className="flex justify-between mb-4">
+        <h1 className="text-2xl font-semibold">Product Management</h1>
         <button
-          type="submit"
-          className="bg-blue-600 text-white py-2 rounded col-span-full"
+          onClick={openCreate}
+          className="bg-black text-white px-4 py-2 rounded"
         >
-          {editingId ? "Update Product" : "Create Product"}
+          + Add Product
         </button>
-      </form>
+      </div>
 
-      {/* PRODUCT LIST */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* LIST */}
+      <div className="space-y-3">
         {products.map((p) => (
           <div
-            key={p.id}
-            className="border rounded-lg p-4 shadow-sm bg-white"
+            key={p.slug}
+            className="bg-white p-4 rounded shadow flex justify-between"
           >
-            {p.image1 && (
-              <img
-                src={p.image1}
-                alt={p.title}
-                className="h-40 w-full object-cover rounded"
-              />
-            )}
-            <h3 className="font-semibold mt-2">{p.title}</h3>
-            <p className="text-sm text-gray-600">₹ {p.price}</p>
-
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={() => editProduct(p)}
-                className="px-3 py-1 bg-yellow-500 text-white rounded"
-              >
+            <div className="flex gap-2">
+              <div className="w-12">
+                <img src={p.image1} alt="" className="w-full block" />
+              </div>
+              <div>
+                <p className="font-medium">{p.title}</p>
+                <p className="text-sm text-gray-500">{p.product_category}</p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <button onClick={() => openEdit(p)} className="text-blue-600">
                 Edit
               </button>
-
-              <button
-                onClick={() => deleteProduct(p.slug)}
-                className="px-3 py-1 bg-red-500 text-white rounded"
-              >
+              <button onClick={() => remove(p.slug)} className="text-red-600">
                 Delete
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* MODAL */}
+      {open && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6 space-y-4">
+            <div className="flex justify-between">
+              <h2 className="text-xl font-semibold">
+                {editing ? "Edit Product" : "Add Product"}
+              </h2>
+              <button onClick={() => setOpen(false)}>✕</button>
+            </div>
+
+            <div>
+              <label htmlFor="">Title</label>
+              <input
+                name="title"
+                value={form.title}
+                onChange={change}
+                className="input"
+                placeholder="Title"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="">Age Category</label>
+              <select
+                name="age_category"
+                value={form.age_category}
+                onChange={change}
+                className="input"
+              >
+                <option value="">Age Category</option>
+                {AGE_CHOICES.map((v) => (
+                  <option key={v} value={v}>
+                    {AGE_LABELS[v]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="">Product Category</label>
+              <select
+                name="product_category"
+                value={form.product_category}
+                onChange={change}
+                className="input"
+              >
+                <option value="">Product Category</option>
+                {PRODUCT_CATEGORIES.map((v) => (
+                  <option key={v} value={v}>
+                    {v.charAt(0).toUpperCase() + v.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label htmlFor="">MRP</label>
+                <input
+                  name="mrp"
+                  value={form.mrp}
+                  onChange={change}
+                  className="input"
+                  placeholder="MRP"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="">Price</label>
+                <input
+                  name="price"
+                  value={form.price}
+                  onChange={change}
+                  className="input"
+                  placeholder="Price"
+                />
+              </div>
+              <div>
+                <label htmlFor="">Stocks</label>
+                <input
+                  name="stock_qty"
+                  value={form.stock_qty}
+                  onChange={change}
+                  className="input"
+                  placeholder="Stock Qty"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="">Material Type</label>
+              <input
+                name="material_type"
+                value={form.material_type}
+                onChange={change}
+                className="input"
+                placeholder="Material Type"
+              />
+            </div>
+
+            <label htmlFor="">Fit type</label>
+            <input
+              name="fit_type"
+              value={form.fit_type}
+              onChange={change}
+              className="input"
+              placeholder="Fit Type"
+            />
+
+            <label htmlFor="">Pattern/Design</label>
+            <input
+              name="pattern_design"
+              value={form.pattern_design}
+              onChange={change}
+              className="input"
+              placeholder="Pattern Design"
+            />
+
+            <label htmlFor="">Age limits</label>
+            <textarea
+              name="age_limits"
+              value={form.age_limits}
+              onChange={change}
+              className="input"
+              placeholder="Age Limits"
+            />
+
+            <div>
+              <p className="font-medium mb-1">Available Sizes</p>
+              <div className="flex flex-wrap gap-2">
+                {SIZE_CHOICES.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => toggleSize(s)}
+                    className={`px-3 py-1 border rounded ${
+                      form.available_sizes.includes(s)
+                        ? "bg-black text-white"
+                        : ""
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { key: "image1", label: "Main Image" },
+                { key: "image2", label: "Image 2" },
+                { key: "image3", label: "Image 3" },
+                { key: "image4", label: "Image 4" },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    {label}
+                  </label>
+
+                  {/* Preview: either newly selected file or backend image */}
+                  {images[key] ? (
+                    <img
+                      src={URL.createObjectURL(images[key])}
+                      alt={label}
+                      className="w-32 h-32 object-cover border rounded mb-1"
+                    />
+                  ) : editing && form[key] ? (
+                    <img
+                      src={form[key]}
+                      alt={label}
+                      className="w-32 h-32 object-cover border rounded mb-1"
+                    />
+                  ) : null}
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) =>
+                      setImages({ ...images, [key]: e.target.files[0] })
+                    }
+                    className="block w-full text-sm file:mr-3 file:py-2 file:px-4
+                   file:rounded file:border-0
+                   file:bg-black file:text-white
+                   hover:file:bg-gray-800"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <label className="flex gap-2">
+              <input
+                type="checkbox"
+                name="is_available"
+                checked={form.is_available}
+                onChange={change}
+              />
+              Available
+            </label>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <button
+                onClick={() => setOpen(false)}
+                className="border px-4 py-2 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={save}
+                className="bg-black text-white px-4 py-2 rounded"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
