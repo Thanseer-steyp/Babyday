@@ -14,9 +14,8 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentImage, setCurrentImage] = useState(0);
-  const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
+  const { wishlistItems, addToWishlist } = useWishlist();
   const [selectedSize, setSelectedSize] = useState("");
-
 
   const inWishlist = wishlistItems.some((item) => item.slug === slug);
 
@@ -142,10 +141,12 @@ export default function ProductDetailPage() {
             <span className="font-semibold">Pattern:</span>{" "}
             {product.pattern_design}
           </p>
-          <p className="text-gray-700">
-            <span className="font-semibold">Age Limits:</span>{" "}
-            {product.age_limits}
-          </p>
+          {product.age_limits && (
+            <p className="text-gray-700">
+              <span className="font-semibold">Age Limits:</span>{" "}
+              {product.age_limits}
+            </p>
+          )}
           <p className="text-xl font-bold text-green-600">
             ₹ {product.price}{" "}
             <span className="line-through text-gray-400 text-base">

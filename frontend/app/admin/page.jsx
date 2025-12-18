@@ -58,6 +58,7 @@ export default function AdminProductsPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
   const [images, setImages] = useState({});
+  const [removedImages, setRemovedImages] = useState({});
 
   // 👇 define it OUTSIDE useEffect
   const loadProducts = async () => {
@@ -101,7 +102,6 @@ export default function AdminProductsPage() {
     setImages({});
     setOpen(true);
   };
-
   const openEdit = (product) => {
     setEditing(product);
     setForm({
@@ -117,8 +117,13 @@ export default function AdminProductsPage() {
       age_limits: product.age_limits || "",
       available_sizes: product.available_sizes || [],
       is_available: product.is_available ?? true,
+      image1: product.image1 || null,
+      image2: product.image2 || null,
+      image3: product.image3 || null,
+      image4: product.image4 || null,
     });
     setImages({});
+    setRemovedImages({});
     setOpen(true);
   };
 
@@ -140,16 +145,27 @@ export default function AdminProductsPage() {
     try {
       const data = new FormData();
 
+      // normal fields
       Object.entries(form).forEach(([k, v]) => {
         if (k === "available_sizes") {
           data.append(k, JSON.stringify(v));
-        } else {
-          data.append(k, v);
+        } else if (!k.startsWith("image")) {
+          data.append(k, v ?? "");
         }
       });
 
+      // removed images → send empty
+      Object.entries(removedImages).forEach(([k, v]) => {
+        if (v === true) {
+          data.append(k, "");
+        }
+      });
+
+      // new images
       Object.entries(images).forEach(([k, v]) => {
-        if (v) data.append(k, v);
+        if (v instanceof File) {
+          data.append(k, v);
+        }
       });
 
       const headers = {
@@ -390,40 +406,83 @@ export default function AdminProductsPage() {
                 { key: "image2", label: "Image 2" },
                 { key: "image3", label: "Image 3" },
                 { key: "image4", label: "Image 4" },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-700">
-                    {label}
-                  </label>
+              ].map(({ key, label }) => {
+                const hasExisting = editing && form[key] && !removedImages[key];
+                const hasNew = images[key] instanceof File;
 
-                  {/* Preview: either newly selected file or backend image */}
-                  {images[key] ? (
-                    <img
-                      src={URL.createObjectURL(images[key])}
-                      alt={label}
-                      className="w-32 h-32 object-cover border rounded mb-1"
-                    />
-                  ) : editing && form[key] ? (
-                    <img
-                      src={form[key]}
-                      alt={label}
-                      className="w-32 h-32 object-cover border rounded mb-1"
-                    />
-                  ) : null}
+                return (
+                  <div key={key} className="flex flex-col gap-2">
+                    <label className="text-sm font-medium">{label}</label>
 
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) =>
-                      setImages({ ...images, [key]: e.target.files[0] })
-                    }
-                    className="block w-full text-sm file:mr-3 file:py-2 file:px-4
-                   file:rounded file:border-0
-                   file:bg-black file:text-white
-                   hover:file:bg-gray-800"
-                  />
-                </div>
-              ))}
+                    {/* Preview */}
+                    {hasNew && (
+                      <img
+                        src={URL.createObjectURL(images[key])}
+                        className="w-32 h-32 object-cover border rounded"
+                      />
+                    )}
+
+                    {!hasNew && hasExisting && (
+                      <img
+                        src={form[key]}
+                        className="w-32 h-32 object-cover border rounded"
+                      />
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      {/* ADD IMAGE */}
+                      {!hasExisting && !hasNew && (
+                        <label className="cursor-pointer">
+                          <div className="bg-black text-white px-3 py-1 rounded text-sm">
+                            Add Image
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) =>
+                              setImages({ ...images, [key]: e.target.files[0] })
+                            }
+                          />
+                        </label>
+                      )}
+
+                      {/* CHANGE IMAGE */}
+                      {(hasExisting || hasNew) && (
+                        <label className="cursor-pointer">
+                          <div className="bg-gray-600 text-white px-3 py-1 rounded text-sm">
+                            Change
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) =>
+                              setImages({ ...images, [key]: e.target.files[0] })
+                            }
+                          />
+                        </label>
+                      )}
+
+                      {/* REMOVE IMAGE */}
+                      {(hasExisting || hasNew) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setImages({ ...images, [key]: null });
+                            setRemovedImages({ ...removedImages, [key]: true });
+                            setForm({ ...form, [key]: null });
+                          }}
+                          className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <label className="flex gap-2">
