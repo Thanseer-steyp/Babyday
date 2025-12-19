@@ -40,8 +40,14 @@ class Product(models.Model):
         choices=PRODUCT_CATEGORY_CHOICES
     )
 
-    mrp = models.DecimalField(max_digits=10, decimal_places=2)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    mrp = models.DecimalField(max_digits=10, decimal_places=0)
+    price = models.DecimalField(max_digits=10, decimal_places=0)
+    delivery_charge = models.DecimalField(
+        max_digits=10,
+        decimal_places=0,
+        default=0
+    )
+
 
     stock_qty = models.PositiveIntegerField()
 

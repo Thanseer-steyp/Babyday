@@ -67,7 +67,7 @@ export default function ProductsPage() {
               <h2 className="text-lg font-semibold mb-1 text-black">{product.title}</h2>
 
               <p className="text-sm text-gray-600 line-clamp-2 mb-3">
-                {product.age_limits || product.pattern_design}
+                {product.age_limits || product.material_type}
               </p>
 
               <p className="text-xl font-bold text-green-600">

@@ -96,6 +96,7 @@ export default function AdminProductsPage() {
       fit_type: "",
       pattern_design: "",
       age_limits: "",
+      delivery_charge: "",
       available_sizes: [],
       is_available: true,
     });
@@ -115,6 +116,7 @@ export default function AdminProductsPage() {
       fit_type: product.fit_type || "",
       pattern_design: product.pattern_design || "",
       age_limits: product.age_limits || "",
+      delivery_charge: product.delivery_charge || "",
       available_sizes: product.available_sizes || [],
       is_available: product.is_available ?? true,
       image1: product.image1 || null,
@@ -330,6 +332,16 @@ export default function AdminProductsPage() {
                   onChange={change}
                   className="input"
                   placeholder="Price"
+                />
+              </div>
+              <div>
+                <label htmlFor="">Delivery Charge</label>
+                <input
+                  name="delivery_charge"
+                  value={form.delivery_charge}
+                  onChange={change}
+                  className="input"
+                  placeholder="Delivery Charge"
                 />
               </div>
               <div>

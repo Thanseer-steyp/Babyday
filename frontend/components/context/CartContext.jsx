@@ -12,11 +12,13 @@ export const CartProvider = ({ children }) => {
 
   // Load token
   useEffect(() => {
-    const accessToken = localStorage.getItem("access");
-    if (accessToken) {
-      setToken(accessToken);
-    }
+    setToken(localStorage.getItem("access"));
   }, []);
+
+  const setAuthToken = (newToken) => {
+    localStorage.setItem("access", newToken);
+    setToken(newToken);
+  };
 
   // Fetch cart from backend
   const fetchCart = async (authToken) => {
@@ -26,43 +28,30 @@ export const CartProvider = ({ children }) => {
       return;
     }
 
-    try {
-      const res = await axios.get("http://localhost:8000/api/v1/user/cart/", {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      setCartItems(res.data);
-    } catch (err) {
-      console.error("Cart fetch failed");
-      setCartItems([]);
-    } finally {
-      setLoading(false);
-    }
+    const res = await axios.get("http://localhost:8000/api/v1/user/cart/", {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+
+    setCartItems(res.data);
+    setLoading(false);
   };
 
-  // Fetch cart when token changes
   useEffect(() => {
-    if (token) {
-      fetchCart(token);
-    } else {
-      setLoading(false);
-    }
+    fetchCart(token);
   }, [token]);
 
-  const addToCart = async (slug, size) => {
-    if (!token) throw new Error("Not authenticated");
+const addToCart = async (slug, size, authToken = token) => {
+  if (!authToken) return;
 
-    await axios.post(
-      `http://localhost:8000/api/v1/user/cart/add/${slug}/`,
-      { size }, // send size
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+  await axios.post(
+    `http://localhost:8000/api/v1/user/cart/add/${slug}/`,
+    { size },
+    { headers: { Authorization: `Bearer ${authToken}` } }
+  );
 
-    fetchCart(token); // refresh cart
-  };
+  fetchCart(authToken);
+};
+
 
   // Remove from cart
   const removeFromCart = async (slug) => {
@@ -103,6 +92,7 @@ export const CartProvider = ({ children }) => {
         cartCount: cartItems.reduce((sum, item) => sum + item.quantity, 0),
 
         addToCart,
+        setAuthToken,
         removeFromCart,
         updateQty,
         loading,

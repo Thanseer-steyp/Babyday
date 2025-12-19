@@ -5,17 +5,19 @@ import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { useCart } from "@/components/context/CartContext";
 import { useWishlist } from "@/components/context/WishlistContext";
+import AuthModal from "../../../components/includes/AuthModal";
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
   const router = useRouter();
   const [product, setProduct] = useState(null);
-  const { cartItems, addToCart } = useCart();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentImage, setCurrentImage] = useState(0);
   const { wishlistItems, addToWishlist } = useWishlist();
   const [selectedSize, setSelectedSize] = useState("");
+  const [showAuth, setShowAuth] = useState(false);
+  const { addToCart, token, cartItems } = useCart();
 
   const inWishlist = wishlistItems.some((item) => item.slug === slug);
 
@@ -153,6 +155,12 @@ export default function ProductDetailPage() {
               ₹ {product.mrp}
             </span>
           </p>
+          <p className="text-black ">
+            {Number(product.delivery_charge) === 0
+              ? "Free Delivery"
+              : `Delivery Fee ₹${product.delivery_charge}`}
+          </p>
+
           {product.available_sizes?.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {product.available_sizes.map((size) => (
@@ -172,27 +180,31 @@ export default function ProductDetailPage() {
           )}
 
           <div className="mt-6 space-x-2.5">
-            {!inCart ? (
-              <button
-                onClick={() => {
-                  if (!selectedSize) {
-                    alert("Please select a size first");
-                    return;
-                  }
-                  addToCart(slug, selectedSize);
-                }}
-                className="px-6 py-3 bg-green-600 text-white rounded"
-              >
-                Add to Cart
-              </button>
-            ) : (
-              <button
-                onClick={() => router.push("/cart")}
-                className="px-6 py-3 bg-black text-white rounded"
-              >
-                Go to Cart
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (!selectedSize) {
+                  alert("Please select a size");
+                  return;
+                }
+
+                if (!token) {
+                  // 🧠 save intent
+                  localStorage.setItem(
+                    "pendingCart",
+                    JSON.stringify({ slug, size: selectedSize })
+                  );
+
+                  setShowAuth(true);
+                  return;
+                }
+
+                addToCart(slug, selectedSize);
+              }}
+              className="px-6 py-3 bg-green-600 text-white rounded"
+            >
+              Add to Cart
+            </button>
+
             {!inWishlist ? (
               <button
                 onClick={() => addToWishlist(slug)}
@@ -211,6 +223,22 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+      <AuthModal
+        open={showAuth}
+        onClose={() => setShowAuth(false)}
+        onSuccess={(accessToken) => {
+          const pending = localStorage.getItem("pendingCart");
+
+          if (pending) {
+            const { slug, size } = JSON.parse(pending);
+
+            // 👇 PASS TOKEN EXPLICITLY
+            addToCart(slug, size, accessToken);
+
+            localStorage.removeItem("pendingCart");
+          }
+        }}
+      />
     </div>
   );
 }

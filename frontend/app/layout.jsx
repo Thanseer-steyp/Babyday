@@ -3,6 +3,7 @@ import "./globals.css";
 import Wrapper from "@/components/includes/HeaderFooterWrapper";
 import { CartProvider } from "@/components/context/CartContext";
 import { WishlistProvider } from "@/components/context/WishlistContext";
+import { AuthProvider } from "@/components/context/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,11 +26,13 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <CartProvider>
-          <WishlistProvider>
-            <Wrapper>{children}</Wrapper>
-          </WishlistProvider>
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <Wrapper>{children}</Wrapper>
+            </WishlistProvider>
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );

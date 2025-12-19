@@ -114,10 +114,11 @@ RAZORPAY_KEY_ID = "rzp_test_RjuxivZiT2rO2J"
 RAZORPAY_KEY_SECRET = "HoQdu7d5i7vIsUcvOzK95HT5"
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=60),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
-
 
 if platform.system() != "Windows":
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

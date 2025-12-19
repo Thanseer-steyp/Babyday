@@ -4,11 +4,12 @@ from django.urls import path
 #     VerifyPaymentView,
 # )
 from .views import ( CartListView, AddToCartView, RemoveFromCartView,UpdateCartQtyView, WishlistListView,
-    AddToWishlistView,RemoveFromWishlistView)
+    AddToWishlistView,RemoveFromWishlistView,MeView)
 
 urlpatterns = [
     # path("create-order/", CreateRazorpayOrderView.as_view()),
     # path("verify-payment/", VerifyPaymentView.as_view()),
+    path("me/", MeView.as_view(), name="user-data"),
     path("cart/", CartListView.as_view(), name="cart-list"),
     path("cart/add/<slug:slug>/", AddToCartView.as_view(), name="add-to-cart"),
     path("cart/remove/<slug:slug>/", RemoveFromCartView.as_view(), name="remove-from-cart"),
