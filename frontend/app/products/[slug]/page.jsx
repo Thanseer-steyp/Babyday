@@ -6,6 +6,7 @@ import axios from "axios";
 import { useCart } from "@/components/context/CartContext";
 import { useWishlist } from "@/components/context/WishlistContext";
 import AuthModal from "../../../components/includes/AuthModal";
+import BuyNowModal from "../../../components/includes/BuyNowModal";
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
@@ -18,10 +19,41 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState("");
   const [showAuth, setShowAuth] = useState(false);
   const { addToCart, token, cartItems } = useCart();
+  const [showBuyNow, setShowBuyNow] = useState(false);
 
   const inWishlist = wishlistItems.some((item) => item.slug === slug);
 
   const inCart = cartItems.some((item) => item.slug === slug);
+
+  const AGE_CATEGORY_LABELS = {
+    kids_boy: "Kids (Boy)",
+    kids_girl: "Kids (Girl)",
+    kids_unisex: "Kids (Unisex)",
+    adults_men: "Adults (Men)",
+    adults_women: "Adults (Women)",
+    adults_unisex: "Adults (Unisex)",
+    all_age_men: "All Age (Men)",
+    all_age_women: "All Age (Women)",
+    all_age_unisex: "All Age (Unisex)",
+  };
+
+  const getEstimatedDelivery = () => {
+    const today = new Date();
+
+    const start = new Date(today);
+    start.setDate(today.getDate() + 2);
+
+    const end = new Date(today);
+    end.setDate(today.getDate() + 5);
+
+    const format = (date) =>
+      date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+
+    return `${format(start)} - ${format(end)}`;
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -130,8 +162,9 @@ export default function ProductDetailPage() {
           <h1 className="text-3xl font-bold text-black">{product.title}</h1>
           <p className="text-gray-700">
             <span className="font-semibold">Category:</span>{" "}
-            {product.product_category} / {product.age_category}
+            {AGE_CATEGORY_LABELS[product.age_category] || product.age_category}
           </p>
+
           <p className="text-gray-700">
             <span className="font-semibold">Material:</span>{" "}
             {product.material_type}
@@ -220,9 +253,42 @@ export default function ProductDetailPage() {
                 Go to Wishlist
               </button>
             )}
+            <button
+              onClick={() => {
+                if (!selectedSize) {
+                  alert("Please select a size");
+                  return;
+                }
+
+                // ❌ NO token check here
+                setShowBuyNow(true);
+              }}
+              className="px-6 py-3 bg-black text-white rounded"
+            >
+              Buy Now
+            </button>
+          </div>
+          <div className="mt-3 p-3 bg-gray-100 rounded-lg flex justify-between text-sm">
+            <span className="font-medium text-gray-700">
+              Estimated Delivery
+            </span>
+            <span className="text-black font-semibold">
+              {getEstimatedDelivery()}
+            </span>
           </div>
         </div>
       </div>
+      <BuyNowModal
+        open={showBuyNow}
+        onClose={() => setShowBuyNow(false)}
+        product={product}
+        size={selectedSize}
+        onRequireAuth={() => {
+          setShowBuyNow(false);
+          setShowAuth(true); // open auth modal
+        }}
+      />
+
       <AuthModal
         open={showAuth}
         onClose={() => setShowAuth(false)}

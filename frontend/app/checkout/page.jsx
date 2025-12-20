@@ -1,0 +1,378 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import AuthModal from "@/components/includes/AuthModal";
+import api from "@/components/config/Api";
+import { useAuth } from "@/components/context/AuthContext";
+
+const INDIAN_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Delhi",
+];
+
+export default function CheckoutPage() {
+  const { user, loading } = useAuth();
+  const [step, setStep] = useState(1);
+  const [hasAddress, setHasAddress] = useState(false);
+
+  const [showAuth, setShowAuth] = useState(false);
+  const [checkoutItem, setCheckoutItem] = useState(null);
+
+  const handlePayment = async () => {
+    if (!checkoutItem) return;
+
+    const res = await loadRazorpayScript();
+    if (!res) {
+      alert("Razorpay SDK failed to load");
+      return;
+    }
+
+    try {
+      // 1️⃣ Create order in backend
+      const orderRes = await api.post("api/v1/user/create-order/", {
+        title: checkoutItem.title,
+        slug: checkoutItem.slug,
+        qty: checkoutItem.qty,
+        price: checkoutItem.price,
+        total: checkoutItem.total,
+        size: checkoutItem.size,
+        delivery_charge: checkoutItem.delivery_charge,
+        discount: checkoutItem.discount,
+      });
+
+      const { order_id, amount, razorpay_key, title: product } = orderRes.data;
+
+      // 2️⃣ Open Razorpay checkout
+      const options = {
+        key: razorpay_key,
+        amount,
+        currency: "INR",
+        name: product,
+        order_id,
+        handler: async (response) => {
+          await api.post("api/v1/user/verify-payment/", {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
+          alert("Payment Successful!");
+        },
+      };
+
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.open();
+    } catch (err) {
+      console.error(err.response?.data);
+      alert("Payment failed. Try again.");
+    }
+  };
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (typeof window === "undefined") return resolve(false);
+
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const [address, setAddress] = useState({
+    name: "",
+    phone: "",
+    alt_phone: "",
+    pincode: "",
+    state: "",
+    city: "",
+    location: "",
+    address_line: "",
+    landmark: "",
+  });
+
+  /* ---------------- INIT ---------------- */
+  useEffect(() => {
+    const item = localStorage.getItem("checkoutItem");
+    if (!item) return;
+    setCheckoutItem(JSON.parse(item));
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      setStep(2);
+      fetchAddress();
+    }
+  }, [user]);
+
+  /* ---------------- ADDRESS ---------------- */
+  const fetchAddress = async () => {
+    try {
+      const res = await api.get("api/v1/user/address/");
+      if (res.data?.name) {
+        setAddress(res.data);
+        setHasAddress(true); // 👈 THIS IS KEY
+      }
+    } catch {}
+  };
+
+  const saveAddress = async () => {
+    try {
+      if (hasAddress) {
+        // UPDATE
+        await api.put("api/v1/user/address/", address);
+      } else {
+        // CREATE
+        await api.post("api/v1/user/address/", address);
+        setHasAddress(true);
+      }
+
+      setStep(3);
+    } catch (err) {
+      console.error(err.response?.data);
+      alert("Failed to save address");
+    }
+  };
+
+  if (!checkoutItem) return null;
+
+  /* ---------------- UI ---------------- */
+  return (
+    <div className="min-h-screen bg-gray-100 p-6 text-black flex">
+      <div className="w-4/5 bg-white rounded-xl p-6 shadow">
+        {/* STEPPER */}
+        <div className="flex justify-between mb-6 text-sm">
+          <Step label="Account" active={step >= 1} done={step > 1} />
+          <Step label="Address" active={step >= 2} done={step > 2} />
+          <Step label="Payment" active={step >= 3} />
+        </div>
+
+        {/* STEP 1 */}
+        {step === 1 && (
+          <div>
+            <h2 className="font-bold mb-2">Account</h2>
+            <button
+              onClick={() => setShowAuth(true)}
+              className="px-4 py-2 bg-black text-white rounded"
+            >
+              Login / Register
+            </button>
+          </div>
+        )}
+
+        {/* STEP 2 */}
+        {step === 2 && (
+          <div>
+            <h2 className="font-bold mb-3">Delivery Address</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                value={address.name}
+                onChange={(e) =>
+                  setAddress({ ...address, name: e.target.value })
+                }
+                placeholder="Full Name"
+              />
+              <input
+                value={address.phone}
+                onChange={(e) =>
+                  setAddress({ ...address, phone: e.target.value })
+                }
+                placeholder="Mobile Number"
+              />
+              <input
+                value={address.alt_phone}
+                onChange={(e) =>
+                  setAddress({ ...address, alt_phone: e.target.value })
+                }
+                placeholder="Alt Phone (optional)"
+              />
+              <input
+                value={address.pincode}
+                onChange={(e) =>
+                  setAddress({ ...address, pincode: e.target.value })
+                }
+                placeholder="Pincode"
+              />
+              <input
+                value={address.location}
+                onChange={(e) =>
+                  setAddress({ ...address, location: e.target.value })
+                }
+                placeholder="Location"
+              />
+              <input
+                value={address.city}
+                onChange={(e) =>
+                  setAddress({ ...address, city: e.target.value })
+                }
+                placeholder="City / District"
+              />
+
+              <select
+                value={address.state}
+                onChange={(e) =>
+                  setAddress({ ...address, state: e.target.value })
+                }
+              >
+                <option value="">Select State</option>
+                {INDIAN_STATES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+
+              <input
+                value={address.address_line}
+                onChange={(e) =>
+                  setAddress({ ...address, address_line: e.target.value })
+                }
+                placeholder="Home Address (optional)"
+              />
+              <input
+                value={address.landmark}
+                onChange={(e) =>
+                  setAddress({ ...address, landmark: e.target.value })
+                }
+                placeholder="Landmark (optional)"
+              />
+            </div>
+
+            <button
+              onClick={saveAddress}
+              className="mt-4 px-6 py-2 bg-black text-white rounded"
+            >
+              Save & Continue
+            </button>
+          </div>
+        )}
+
+        {/* STEP 3 */}
+        {step === 3 && (
+          <div>
+            <h2 className="font-bold mb-3">Payment Method</h2>
+
+            <div className="space-y-2">
+              <label className="flex gap-2 items-center">
+                <input type="radio" checked readOnly />
+                <span>Prepaid</span>
+              </label>
+
+              <label className="flex gap-2 items-center opacity-50">
+                <input type="radio" disabled />
+                <span>Cash on Delivery(Unavailable)</span>
+              </label>
+            </div>
+
+            <button
+              onClick={handlePayment}
+              className="mt-4 w-full py-3 bg-green-600 text-white rounded"
+            >
+              Continue to Payment
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="w-1/5 bg-white">
+        {checkoutItem && (
+          <div className="bg-gray-100 rounded-xl p-4 space-y-3 text-black">
+            <h2 className="font-bold text-lg">Order Summary</h2>
+
+            <div className="flex gap-3 items-center">
+              <img
+                src={checkoutItem.image}
+                alt={checkoutItem.title}
+                className="w-20 h-20 object-cover rounded-lg border"
+              />
+              <div className="flex-1">
+                <p className="font-semibold">{checkoutItem.title}</p>
+                <p className="text-sm">Size: {checkoutItem.size}</p>
+                <p className="text-sm">Qty: {checkoutItem.qty}</p>
+              </div>
+            </div>
+
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span>MRP</span>
+                <span>₹{checkoutItem.mrp}</span>
+              </div>
+
+              <div className="flex justify-between text-green-600">
+                <span>Discount</span>
+                <span>-₹{checkoutItem.discount}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>₹{checkoutItem.price}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>Delivery Charge</span>
+                <span>
+                  {checkoutItem.delivery_charge === 0 ? (
+                    <span className="text-green-600 font-medium">Free</span>
+                  ) : (
+                    `₹${checkoutItem.delivery_charge}`
+                  )}
+                </span>
+              </div>
+
+              <hr />
+
+              <div className="flex justify-between font-bold text-lg">
+                <span>Total</span>
+                <span>₹{checkoutItem.total}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* AUTH MODAL */}
+      <AuthModal
+        open={showAuth}
+        onClose={() => setShowAuth(false)}
+        onSuccess={() => setStep(2)}
+      />
+    </div>
+  );
+}
+
+/* ---------------- STEP UI ---------------- */
+function Step({ label, active, done }) {
+  return (
+    <div
+      className={`flex-1 text-center ${active ? "font-bold" : "text-gray-400"}`}
+    >
+      {done ? "✔ " : ""}
+      {label}
+    </div>
+  );
+}

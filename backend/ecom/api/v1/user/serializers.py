@@ -2,8 +2,16 @@
 
 from rest_framework import serializers
 from django.utils.text import slugify
-from user.models import Cart
+from user.models import Cart,Address
 from public.models import Product
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = "__all__"
+        read_only_fields = ("user",)
+
 
 class CartSerializer(serializers.ModelSerializer):
     title = serializers.CharField(source="product.title", read_only=True)

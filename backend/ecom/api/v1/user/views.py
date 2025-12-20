@@ -61,19 +61,123 @@
 #         return Response({"message": "Payment verified"})
 
 
-# views.py
+
 from django.utils.text import slugify
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
-
-from user.models import Cart,Wishlist
+from rest_framework import status
+from user.models import Cart,Wishlist,Address,Order
+from django.conf import settings
 from public.models import Product
-from .serializers import CartSerializer,WishlistSerializer
+from .serializers import CartSerializer,WishlistSerializer,AddressSerializer
+import razorpay
+
+client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+class CreateRazorpayOrderView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        data = request.data
+        try:
+            amount = int(data["total"] * 100)  # amount in paise
+            razorpay_order = client.order.create({
+                "amount": amount,
+                "currency": "INR",
+                "payment_capture": 1,  # auto capture
+            })
+
+            order = Order.objects.create(
+                user=request.user,
+                product_name=data["title"],
+                product_slug=data["slug"],
+                size=data.get("size", ""),
+                qty=data.get("qty", 1),
+                price=data["price"],
+                discount=data.get("discount", 0),
+                delivery_charge=data.get("delivery_charge", 0),
+                total=data["total"],
+                razorpay_order_id=razorpay_order["id"],
+            )
+
+            return Response({
+                "order_id": razorpay_order["id"],
+                "amount": amount,
+                "currency": "INR",
+                "razorpay_key": settings.RAZORPAY_KEY_ID,
+            })
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
 
-# views.py
+class VerifyRazorpayPaymentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from razorpay.errors import SignatureVerificationError
+        import hmac
+        import hashlib
+
+        data = request.data
+        razorpay_order_id = data.get("razorpay_order_id")
+        razorpay_payment_id = data.get("razorpay_payment_id")
+        razorpay_signature = data.get("razorpay_signature")
+
+        try:
+            # Verify signature
+            generated_signature = hmac.new(
+                settings.RAZORPAY_KEY_SECRET.encode(),
+                f"{razorpay_order_id}|{razorpay_payment_id}".encode(),
+                hashlib.sha256
+            ).hexdigest()
+
+            if generated_signature != razorpay_signature:
+                return Response({"error": "Invalid signature"}, status=400)
+
+            # Update order status
+            order = Order.objects.get(razorpay_order_id=razorpay_order_id)
+            order.razorpay_payment_id = razorpay_payment_id
+            order.razorpay_signature = razorpay_signature
+            order.status = "paid"
+            order.save()
+
+            return Response({"success": True, "order_id": order.id})
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+
+
+class AddressView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        address = Address.objects.filter(user=request.user).first()
+        if not address:
+            return Response({}, status=status.HTTP_200_OK)
+
+        serializer = AddressSerializer(address)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = AddressSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=201)
+
+    def put(self, request):
+        address = Address.objects.filter(user=request.user).first()
+        if not address:
+            return Response({"detail": "Address not found"}, status=404)
+
+        serializer = AddressSerializer(
+            address, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]

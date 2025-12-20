@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import api from "@/components/config/Api";
 import axios from "axios";
 
 const CartContext = createContext();
@@ -40,18 +41,13 @@ export const CartProvider = ({ children }) => {
     fetchCart(token);
   }, [token]);
 
-const addToCart = async (slug, size, authToken = token) => {
-  if (!authToken) return;
+  const addToCart = async (slug, size, authToken = token) => {
+    if (!authToken) return;
 
-  await axios.post(
-    `http://localhost:8000/api/v1/user/cart/add/${slug}/`,
-    { size },
-    { headers: { Authorization: `Bearer ${authToken}` } }
-  );
+    await api.post(`api/v1/user/cart/add/${slug}/`, { size });
 
-  fetchCart(authToken);
-};
-
+    fetchCart(authToken);
+  };
 
   // Remove from cart
   const removeFromCart = async (slug) => {
