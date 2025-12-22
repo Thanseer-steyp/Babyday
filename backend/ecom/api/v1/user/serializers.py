@@ -1,8 +1,6 @@
-# serializers.py
-
-from rest_framework import serializers
 from django.utils.text import slugify
-from user.models import Cart,Address
+from rest_framework import serializers
+from user.models import Cart,Address,Order
 from public.models import Product
 
 
@@ -54,3 +52,28 @@ class WishlistSerializer(serializers.ModelSerializer):
 
     def get_slug(self, obj):
         return slugify(obj.title)
+
+
+
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    product_image = serializers.SerializerMethodField()
+    class Meta:
+        model = Order
+        fields = "__all__"
+        read_only_fields = [
+            "user",
+            "razorpay_order_id",
+            "razorpay_payment_id",
+            "razorpay_signature",
+        ]
+    def get_product_image(self, obj):
+        try:
+            product = Product.objects.get(title=obj.product_name)
+            if product.image1:
+                request = self.context.get("request")
+                return request.build_absolute_uri(product.image1.url) if request else product.image1.url
+            return None
+        except Product.DoesNotExist:
+            return None

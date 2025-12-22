@@ -1,153 +1,138 @@
-# from rest_framework.permissions import IsAuthenticated
-# from django.conf import settings
-# import razorpay
-# from user.models import Order
-# from product.models import Cloth,Jewellery
-
-
-
-
-
-
-# class CreateRazorpayOrderView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request):
-#         product_type = request.data.get("product_type")
-#         product_id = request.data.get("product_id")
-
-#         # fetch correct product
-#         if product_type == "cloth":
-#             product = Cloth.objects.get(id=product_id)
-#         elif product_type == "jewellery":
-#             product = Jewellery.objects.get(id=product_id)
-#         else:
-#             return Response({"error": "Invalid product type"}, status=400)
-
-#         client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-
-#         razorpay_order = client.order.create({
-#             "amount": product.price * 100,
-#             "currency": "INR",
-#         })
-
-#         # Create Order
-#         Order.objects.create(
-#             user=request.user,
-#             product_type=product_type,
-#             product_id=product_id,
-#             razorpay_order_id=razorpay_order['id']
-#         )
-
-#         return Response({
-#             "order_id": razorpay_order['id'],
-#             "amount": product.price * 100,
-#             "key": settings.RAZORPAY_KEY_ID,
-#             "product": product.name
-#         })
-
-
-# class VerifyPaymentView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request):
-#         data = request.data
-
-#         order = Order.objects.get(razorpay_order_id=data['razorpay_order_id'])
-#         order.razorpay_payment_id = data['razorpay_payment_id']
-#         order.paid = True
-#         order.save()
-
-#         return Response({"message": "Payment verified"})
-
-
-
 from django.utils.text import slugify
-
+from django.conf import settings
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from user.models import Cart,Wishlist,Address,Order
-from django.conf import settings
 from public.models import Product
-from .serializers import CartSerializer,WishlistSerializer,AddressSerializer
+from .serializers import CartSerializer,WishlistSerializer,AddressSerializer,OrderSerializer
 import razorpay
+from razorpay.errors import SignatureVerificationError
 
-client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
-class CreateRazorpayOrderView(APIView):
+class CreateOrderView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         data = request.data
-        try:
-            amount = int(data["total"] * 100)  # amount in paise
-            razorpay_order = client.order.create({
-                "amount": amount,
-                "currency": "INR",
-                "payment_capture": 1,  # auto capture
-            })
+        addr = data.get("address", {}) 
 
+        # COD ORDER
+        if data.get("payment_method") == "cod":
             order = Order.objects.create(
                 user=request.user,
                 product_name=data["title"],
                 product_slug=data["slug"],
+                qty=data["qty"],
                 size=data.get("size", ""),
-                qty=data.get("qty", 1),
                 price=data["price"],
-                discount=data.get("discount", 0),
-                delivery_charge=data.get("delivery_charge", 0),
+                mrp=data["mrp"],    
+                discount=data["discount"],
+                delivery_charge=data["delivery_charge"],
                 total=data["total"],
-                razorpay_order_id=razorpay_order["id"],
+                payment_method="cod",
+                payment_status="initiated",  # COD is unpaid initially
+
+                name=addr.get("name", ""),
+                phone=addr.get("phone", ""),
+                alt_phone=addr.get("alt_phone", ""),
+                pincode=addr.get("pincode", ""),
+                state=addr.get("state", ""),
+                city=addr.get("city", ""),
+                location=addr.get("location", ""),
+                address_line=addr.get("address_line", ""),
+                landmark=addr.get("landmark", ""),
             )
 
             return Response({
-                "order_id": razorpay_order["id"],
-                "amount": amount,
-                "currency": "INR",
-                "razorpay_key": settings.RAZORPAY_KEY_ID,
+                "success": True,
+                "order_id": order.id
             })
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
+
+        # PREPAID ORDER
+        client = razorpay.Client(
+            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+        )
+
+        razorpay_order = client.order.create({
+            "amount": int(float(data["total"]) * 100),
+            "currency": "INR",
+            "payment_capture": 1,
+        })
+
+        order = Order.objects.create(
+            user=request.user,
+            product_name=data["title"],
+            product_slug=data["slug"],
+            qty=data["qty"],
+            size=data.get("size", ""),
+            price=data["price"],
+            mrp=data["mrp"],
+            discount=data["discount"],
+            delivery_charge=data["delivery_charge"],
+            total=data["total"],
+            payment_method="prepaid",
+            razorpay_order_id=razorpay_order["id"],
+            payment_status="initiated",
+
+            name=addr.get("name", ""),
+            phone=addr.get("phone", ""),
+            alt_phone=addr.get("alt_phone", ""),
+            pincode=addr.get("pincode", ""),
+            state=addr.get("state", ""),
+            city=addr.get("city", ""),
+            location=addr.get("location", ""),
+            address_line=addr.get("address_line", ""),
+            landmark=addr.get("landmark", ""),
+        )
+
+        return Response({
+            "order_id": razorpay_order["id"],
+            "amount": razorpay_order["amount"],
+            "razorpay_key": settings.RAZORPAY_KEY_ID,
+            "title": order.product_name,
+        })
 
 
-class VerifyRazorpayPaymentView(APIView):
+class VerifyPaymentView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        from razorpay.errors import SignatureVerificationError
-        import hmac
-        import hashlib
-
         data = request.data
-        razorpay_order_id = data.get("razorpay_order_id")
-        razorpay_payment_id = data.get("razorpay_payment_id")
-        razorpay_signature = data.get("razorpay_signature")
 
         try:
-            # Verify signature
-            generated_signature = hmac.new(
-                settings.RAZORPAY_KEY_SECRET.encode(),
-                f"{razorpay_order_id}|{razorpay_payment_id}".encode(),
-                hashlib.sha256
-            ).hexdigest()
+            client = razorpay.Client(
+                auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+            )
 
-            if generated_signature != razorpay_signature:
-                return Response({"error": "Invalid signature"}, status=400)
+            client.utility.verify_payment_signature({
+                "razorpay_order_id": data["razorpay_order_id"],
+                "razorpay_payment_id": data["razorpay_payment_id"],
+                "razorpay_signature": data["razorpay_signature"],
+            })
 
-            # Update order status
-            order = Order.objects.get(razorpay_order_id=razorpay_order_id)
-            order.razorpay_payment_id = razorpay_payment_id
-            order.razorpay_signature = razorpay_signature
-            order.status = "paid"
+            order = Order.objects.get(
+                razorpay_order_id=data["razorpay_order_id"]
+            )
+
+            order.razorpay_payment_id = data["razorpay_payment_id"]
+            order.razorpay_signature = data["razorpay_signature"]
+            order.payment_status = "paid"
+            order.payment_channel = "upi"  # optional: detect dynamically
             order.save()
 
-            return Response({"success": True, "order_id": order.id})
-        except Order.DoesNotExist:
-            return Response({"error": "Order not found"}, status=404)
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
+            return Response({"success": True})
+
+        except (SignatureVerificationError, Order.DoesNotExist):
+            Order.objects.filter(
+                razorpay_order_id=data.get("razorpay_order_id")
+            ).update(payment_status="failed")
+
+            return Response(
+                {"success": False, "message": "Payment verification failed"},
+                status=400
+            )
 
 
 class AddressView(APIView):
@@ -348,4 +333,14 @@ class WishlistListView(APIView):
         serializer = WishlistSerializer(
             products, many=True, context={"request": request}
         )
+        return Response(serializer.data)
+    
+
+
+class OrderView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        orders = Order.objects.filter(user=request.user).order_by("-created_at")
+        serializer = OrderSerializer(orders, many=True, context={"request": request})
         return Response(serializer.data)

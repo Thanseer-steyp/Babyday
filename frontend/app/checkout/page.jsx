@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AuthModal from "@/components/includes/AuthModal";
 import api from "@/components/config/Api";
 import { useAuth } from "@/components/context/AuthContext";
+
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -41,12 +43,47 @@ export default function CheckoutPage() {
   const { user, loading } = useAuth();
   const [step, setStep] = useState(1);
   const [hasAddress, setHasAddress] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("prepaid");
+  const [showCodModal, setShowCodModal] = useState(false);
 
   const [showAuth, setShowAuth] = useState(false);
   const [checkoutItem, setCheckoutItem] = useState(null);
+  const router = useRouter();
+
+  const confirmCodOrder = async () => {
+    try {
+      await api.post("api/v1/user/create-order/", {
+        title: checkoutItem.title,
+        slug: checkoutItem.slug,
+        qty: checkoutItem.qty,
+        price: checkoutItem.price,
+        total: checkoutItem.total,
+        size: checkoutItem.size,
+        mrp: checkoutItem.mrp,  
+        delivery_charge: checkoutItem.delivery_charge,
+        discount: checkoutItem.discount,
+        payment_method: "cod",
+        address: address,
+      });
+
+      alert("Order placed successfully (Cash on Delivery)");
+      setShowCodModal(false);
+      router.push("/orders");
+      // router.push("/orders");
+    } catch {
+      alert("Failed to place COD order");
+    }
+  };
+
+
 
   const handlePayment = async () => {
     if (!checkoutItem) return;
+
+    if (paymentMethod === "cod") {
+      setShowCodModal(true);
+      return;
+    }
 
     const res = await loadRazorpayScript();
     if (!res) {
@@ -62,9 +99,12 @@ export default function CheckoutPage() {
         qty: checkoutItem.qty,
         price: checkoutItem.price,
         total: checkoutItem.total,
+        mrp: checkoutItem.mrp,
         size: checkoutItem.size,
         delivery_charge: checkoutItem.delivery_charge,
         discount: checkoutItem.discount,
+        payment_method: paymentMethod,
+        address: address,
       });
 
       const { order_id, amount, razorpay_key, title: product } = orderRes.data;
@@ -83,6 +123,7 @@ export default function CheckoutPage() {
             razorpay_signature: response.razorpay_signature,
           });
           alert("Payment Successful!");
+          router.push("/orders");
         },
       };
 
@@ -280,13 +321,23 @@ export default function CheckoutPage() {
 
             <div className="space-y-2">
               <label className="flex gap-2 items-center">
-                <input type="radio" checked readOnly />
+                <input
+                  type="radio"
+                  name="payment_method"
+                  checked={paymentMethod === "prepaid"}
+                  onChange={() => setPaymentMethod("prepaid")}
+                />
                 <span>Prepaid</span>
               </label>
 
-              <label className="flex gap-2 items-center opacity-50">
-                <input type="radio" disabled />
-                <span>Cash on Delivery(Unavailable)</span>
+              <label className="flex gap-2 items-center">
+                <input
+                  type="radio"
+                  name="payment_method"
+                  checked={paymentMethod === "cod"}
+                  onChange={() => setPaymentMethod("cod")}
+                />
+                <span>Cash on Delivery</span>
               </label>
             </div>
 
@@ -294,7 +345,7 @@ export default function CheckoutPage() {
               onClick={handlePayment}
               className="mt-4 w-full py-3 bg-green-600 text-white rounded"
             >
-              Continue to Payment
+              {paymentMethod === "cod" ? "Place Order" : "Continue to Payment"}
             </button>
           </div>
         )}
@@ -354,6 +405,12 @@ export default function CheckoutPage() {
           </div>
         )}
       </div>
+      <CodConfirmModal
+  open={showCodModal}
+  onClose={() => setShowCodModal(false)}
+  onConfirm={confirmCodOrder}
+/>
+
 
       {/* AUTH MODAL */}
       <AuthModal
@@ -373,6 +430,33 @@ function Step({ label, active, done }) {
     >
       {done ? "✔ " : ""}
       {label}
+    </div>
+  );
+}
+
+function CodConfirmModal({ open, onClose, onConfirm }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-6 w-full max-w-sm text-black">
+        <h2 className="text-lg font-bold mb-2">Confirm Cash on Delivery</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          You will pay ₹ on delivery. Please confirm to place your order.
+        </p>
+
+        <div className="flex gap-3 justify-end">
+          <button onClick={onClose} className="px-4 py-2 border rounded">
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 bg-black text-white rounded"
+          >
+            Confirm Order
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

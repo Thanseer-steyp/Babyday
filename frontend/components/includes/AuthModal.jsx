@@ -60,6 +60,8 @@ export default function AuthModal({ open, onClose, onSuccess }) {
         <h2 className="text-2xl font-bold text-center mb-4">Register</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="">Email</label>
           <div className="relative">
             <input
               type="email"
@@ -77,15 +79,19 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               @gmail.com
             </button>
           </div>
+          </div>
 
+          <div>
+            <label htmlFor="">Phone Number</label>
           <input
             type="password"
-            placeholder="Password"
+            placeholder="Phone Number"
             className="input w-full px-4 py-3 border rounded-lg"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
 

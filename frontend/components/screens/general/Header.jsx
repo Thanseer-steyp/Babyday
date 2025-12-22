@@ -32,10 +32,10 @@ export default function Header() {
             Admin
           </Link>
           <Link
-            href="/contact"
+            href="/orders"
             className="text-gray-700 hover:text-green-600 font-medium"
           >
-            Contact
+            Orders
           </Link>
         </nav>
 

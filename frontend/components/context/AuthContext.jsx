@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
+import axios from "axios";
 
 const AuthContext = createContext();
 
@@ -17,7 +18,29 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       return;
     }
+    const fetchUser = async () => {
+      try {
+        const response = await axios.get(
+          "http://localhost:8000/api/v1/user/me/",
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
 
+        const { username, email } = response.data;
+        setUser({ username, email });
+      } catch (error) {
+        console.error(
+          "Error fetching user info:",
+          error.response || error.message
+        );
+        logout(); // clear if token is invalid
+      } finally {
+        setLoading(false);
+      }
+    };
     try {
       const decoded = jwtDecode(accessToken);
       const expiresAt = decoded.exp * 1000;
@@ -34,6 +57,7 @@ export const AuthProvider = ({ children }) => {
 
       // ⏰ AUTO logout when token expires
       const timer = setTimeout(logout, remainingTime);
+      fetchUser(); 
 
       return () => clearTimeout(timer);
     } catch {
