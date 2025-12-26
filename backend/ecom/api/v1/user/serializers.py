@@ -8,7 +8,7 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = "__all__"
-        read_only_fields = ("user",)
+        read_only_fields = ["user"]
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -58,7 +58,10 @@ class WishlistSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+    user = serializers.CharField(source="user.username", read_only=True)
     product_image = serializers.SerializerMethodField()
+    product_category = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
         fields = "__all__"
@@ -77,3 +80,7 @@ class OrderSerializer(serializers.ModelSerializer):
             return None
         except Product.DoesNotExist:
             return None
+
+    def get_product_category(self, obj):
+        product = Product.objects.filter(title=obj.product_name).first()
+        return product.product_category if product else None

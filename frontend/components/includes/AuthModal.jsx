@@ -84,7 +84,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           <div>
             <label htmlFor="">Phone Number</label>
           <input
-            type="password"
+            type="text"
             placeholder="Phone Number"
             className="input w-full px-4 py-3 border rounded-lg"
             value={password}

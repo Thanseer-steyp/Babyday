@@ -159,7 +159,7 @@ export default function ProductDetailPage() {
 
         {/* Product Info */}
         <div className="flex-1 space-y-3">
-          <h1 className="text-3xl font-bold text-black">{product.title}</h1>
+          <h1 className="text-3xl font-bold text-black capitalize">{product.title}</h1>
           <p className="text-gray-700">
             <span className="font-semibold">Category:</span>{" "}
             {AGE_CATEGORY_LABELS[product.age_category] || product.age_category}

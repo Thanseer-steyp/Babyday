@@ -1,14 +1,6 @@
 from django.db import models
 
 
-SIZE_CHOICES = [
-    ('S', 'Small'), ('M', 'Medium'), ('L', 'Large'), ('FREE', 'Free Size'),
-    ('0-1', '0-1'), ('1-2', '1-2'), ('2-3', '2-3'), ('3-4', '3-4'),
-    ('4-5', '4-5'), ('5-6', '5-6'), ('6-7', '6-7'), ('7-8', '7-8'),
-    ('8-9', '8-9'), ('9-10', '9-10'), ('10-11', '10-11'), ('11-12', '11-12'),
-    ('12-13', '12-13'), ('13-14', '13-14'), ('14-15', '14-15'),
-]
-
 class Product(models.Model):
 
     AGE_CATEGORY_CHOICES = [
@@ -62,7 +54,6 @@ class Product(models.Model):
 
     available_sizes = models.JSONField(
         default=list,
-        help_text="Available sizes (choose from): " + ", ".join([label for value, label in SIZE_CHOICES])
     )
 
     age_limits = models.TextField(

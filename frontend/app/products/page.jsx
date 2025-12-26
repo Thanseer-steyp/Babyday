@@ -60,11 +60,11 @@ export default function ProductsPage() {
                 <img
                   src={product.image1}
                   alt={product.title}
-                  className="h-48 w-full object-cover rounded-lg mb-4"
+                  className="h-72 w-full rounded-lg mb-4"
                 />
               )}
 
-              <h2 className="text-lg font-semibold mb-1 text-black">{product.title}</h2>
+              <h2 className="text-lg font-semibold mb-1 text-black capitalize">{product.title}</h2>
 
               <p className="text-sm text-gray-600 line-clamp-2 mb-3">
                 {product.age_limits || product.material_type}

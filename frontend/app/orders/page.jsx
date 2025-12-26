@@ -25,19 +25,21 @@ export default function OrdersPage() {
   };
 
   if (loading) {
-    return <div className="p-10 text-center">Loading orders...</div>;
+    return <div className="h-screen text-center text-white">Loading orders...</div>;
   }
 
   if (!orders.length) {
     return (
-      <div className="p-10 text-center text-black">
-        <p className="text-lg font-semibold">No orders found</p>
+      <div className="h-screen flex items-center justify-center text-white">
+        <div>
+          <p className="text-lg font-semibold text-center">No orders found</p>
         <button
           onClick={() => router.push("/")}
-          className="mt-4 px-6 py-2 bg-black rounded"
+          className="mt-4 text-black p-2 rounded bg-white"
         >
           Continue Shopping
         </button>
+        </div>
       </div>
     );
   }
