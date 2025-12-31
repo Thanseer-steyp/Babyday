@@ -6,7 +6,6 @@ import AuthModal from "@/components/includes/AuthModal";
 import api from "@/components/config/Api";
 import { useAuth } from "@/components/context/AuthContext";
 
-
 const INDIAN_STATES = [
   "Andhra Pradesh",
   "Arunachal Pradesh",
@@ -59,7 +58,7 @@ export default function CheckoutPage() {
         price: checkoutItem.price,
         total: checkoutItem.total,
         size: checkoutItem.size,
-        mrp: checkoutItem.mrp,  
+        mrp: checkoutItem.mrp,
         delivery_charge: checkoutItem.delivery_charge,
         discount: checkoutItem.discount,
         payment_method: "cod",
@@ -68,14 +67,13 @@ export default function CheckoutPage() {
 
       alert("Order placed successfully (Cash on Delivery)");
       setShowCodModal(false);
+      localStorage.removeItem("checkoutItem");
       router.push("/orders");
       // router.push("/orders");
-    } catch {
-      alert("Failed to place COD order");
+    } catch (err) {
+      window.alert(err?.response?.data?.detail || "Failed to place COD order");
     }
   };
-
-
 
   const handlePayment = async () => {
     if (!checkoutItem) return;
@@ -114,7 +112,7 @@ export default function CheckoutPage() {
         key: razorpay_key,
         amount,
         currency: "INR",
-        name: product,
+        name: `Babyday | ${product}`,
         order_id,
         handler: async (response) => {
           await api.post("api/v1/user/verify-payment/", {
@@ -123,6 +121,7 @@ export default function CheckoutPage() {
             razorpay_signature: response.razorpay_signature,
           });
           alert("Payment Successful!");
+          localStorage.removeItem("checkoutItem");
           router.push("/orders");
         },
       };
@@ -256,6 +255,9 @@ export default function CheckoutPage() {
                 placeholder="Alt Phone (optional)"
               />
               <input
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
                 value={address.pincode}
                 onChange={(e) =>
                   setAddress({ ...address, pincode: e.target.value })
@@ -309,7 +311,7 @@ export default function CheckoutPage() {
               onClick={saveAddress}
               className="mt-4 px-6 py-2 bg-black text-white rounded"
             >
-              Save & Continue
+              {hasAddress ? "Continue" : "Save & Continue"}
             </button>
           </div>
         )}
@@ -332,12 +334,16 @@ export default function CheckoutPage() {
 
               <label className="flex gap-2 items-center">
                 <input
+                  // disabled
+                  className="peer"
                   type="radio"
                   name="payment_method"
                   checked={paymentMethod === "cod"}
                   onChange={() => setPaymentMethod("cod")}
                 />
-                <span>Cash on Delivery</span>
+                <span className="peer-disabled:text-gray-400">
+                  Cash on Delivery
+                </span>
               </label>
             </div>
 
@@ -406,11 +412,10 @@ export default function CheckoutPage() {
         )}
       </div>
       <CodConfirmModal
-  open={showCodModal}
-  onClose={() => setShowCodModal(false)}
-  onConfirm={confirmCodOrder}
-/>
-
+        open={showCodModal}
+        onClose={() => setShowCodModal(false)}
+        onConfirm={confirmCodOrder}
+      />
 
       {/* AUTH MODAL */}
       <AuthModal

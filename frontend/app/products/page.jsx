@@ -18,7 +18,7 @@ export default function ProductsPage() {
         setProducts(res.data);
         console.log(res.data)
       } catch (err) {
-        setError(err.response?.data || err.message || "Failed to fetch");
+        setError("Failed to fetch");
       } finally {
         setLoading(false);
       }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import api from "@/components/config/Api";
 import { useRouter } from "next/navigation";
+import StarRating from "../../components/includes/StarRating";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -25,7 +26,9 @@ export default function OrdersPage() {
   };
 
   if (loading) {
-    return <div className="h-screen text-center text-white">Loading orders...</div>;
+    return (
+      <div className="h-screen text-center text-white">Loading orders...</div>
+    );
   }
 
   if (!orders.length) {
@@ -33,12 +36,12 @@ export default function OrdersPage() {
       <div className="h-screen flex items-center justify-center text-white">
         <div>
           <p className="text-lg font-semibold text-center">No orders found</p>
-        <button
-          onClick={() => router.push("/")}
-          className="mt-4 text-black p-2 rounded bg-white"
-        >
-          Continue Shopping
-        </button>
+          <button
+            onClick={() => router.push("/")}
+            className="mt-4 text-black p-2 rounded bg-white"
+          >
+            Continue Shopping
+          </button>
         </div>
       </div>
     );
@@ -62,17 +65,32 @@ export default function OrdersPage() {
 
             <div className="text-sm text-gray-600 space-y-1 flex gap-5">
               <img src={order.product_image} alt="" className="w-20" />
-              <div><p>Order ID: #{order.id}</p>
-              <p>Size: {order.size || "N/A"}</p>
-              <p>Quantity: {order.qty}</p>
-              <p>Payment: {order.payment_method.toUpperCase()}</p>
-              <p>
-                Ordered on: {new Date(order.created_at).toLocaleDateString()}
-              </p></div>
+              <div>
+                <p>Order ID: #{order.id}</p>
+                <p>Size: {order.size || "N/A"}</p>
+                <p>Quantity: {order.qty}</p>
+                <p>Payment: {order.payment_method.toUpperCase()}</p>
+                <p>
+                  Ordered on: {new Date(order.created_at).toLocaleDateString()}
+                </p>
+              </div>
             </div>
 
             <div className="flex justify-between items-center pt-2 border-t">
               <p className="font-bold text-lg">₹{order.total}</p>
+              {order.delivery_status === "delivered" && !order.is_reviewed && (
+                <StarRating orderId={order.id} onRated={fetchOrders} />
+              )}
+
+              {order.is_reviewed && (
+                <p className="text-sm text-green-600">
+                  Rated: {"⭐".repeat(order.rating)}
+                </p>
+              )}
+
+              {order.review && (
+                <p className="text-xs text-gray-500 italic">“{order.review}”</p>
+              )}
 
               <button
                 onClick={() => router.push(`/products/${order.product_slug}`)}

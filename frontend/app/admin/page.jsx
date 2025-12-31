@@ -137,6 +137,7 @@ export default function AdminProductsPage() {
       image2: product.image2 || null,
       image3: product.image3 || null,
       image4: product.image4 || null,
+      add_qty: ""
     });
     setImages({});
     setRemovedImages({});
@@ -359,13 +360,44 @@ export default function AdminProductsPage() {
                 />
               </div>
               <div>
-                <label htmlFor="">Stocks</label>
+                <label htmlFor="">Stock</label>
                 <input
                   name="stock_qty"
                   value={form.stock_qty}
                   onChange={change}
                   className="input"
                   placeholder="Stock Qty"
+                />
+              </div>
+
+              <div>
+                <label>Stocks Left</label>
+                <input
+                  type="text"
+                  value={editing.available_stock}
+                  disabled
+                  readOnly
+                  className="input bg-gray-100 cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label>Add Stock</label>
+                <input
+                  type="number"
+                  value={form.add_qty}
+                  onChange={(e) => {
+                    const addQty = Number(e.target.value) || 0;
+
+                    setForm((prev) => ({
+                      ...prev,
+                      add_qty: e.target.value,
+                      stock_qty: (editing.stock_qty || 0) + addQty,
+                    }));
+                  }}
+                  className="input"
+                  placeholder="Enter quantity to add"
+                  min="0"
                 />
               </div>
             </div>

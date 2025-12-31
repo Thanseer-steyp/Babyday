@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAdminUser
 
 from public.models import Product
-from .serializers import ProductSerializer
+from api.v1.public.serializers import ProductSerializer
 
 
 class ManageProductView(APIView):

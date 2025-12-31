@@ -159,7 +159,30 @@ export default function ProductDetailPage() {
 
         {/* Product Info */}
         <div className="flex-1 space-y-3">
-          <h1 className="text-3xl font-bold text-black capitalize">{product.title}</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold text-black capitalize">
+              {product.title}
+            </h1>
+            <div className="bg-green-700 flex items-center gap-0.5 rounded-md p-1.5">
+              <span className="font-bold text-sm">
+                {Number(product.average_rating).toFixed(1)}
+              </span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="#fff"
+                stroke="#fff"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="lucide lucide-star-icon lucide-star"
+              >
+                <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
+              </svg>
+            </div>
+          </div>
           <p className="text-gray-700">
             <span className="font-semibold">Category:</span>{" "}
             {AGE_CATEGORY_LABELS[product.age_category] || product.age_category}
@@ -212,61 +235,70 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          <div className="mt-6 space-x-2.5">
-            <button
-              onClick={() => {
-                if (!selectedSize) {
-                  alert("Please select a size");
-                  return;
-                }
+          <div className="mt-6 justify-between flex w-full items-center">
+            {product.available_stock > 0 ? (
+              <div className="space-x-2">
+                <button
+                  onClick={() => {
+                    if (product.available_sizes?.length > 0 && !selectedSize) {
+                      alert("Please select a size");
+                      return;
+                    }
 
-                if (!token) {
-                  // 🧠 save intent
-                  localStorage.setItem(
-                    "pendingCart",
-                    JSON.stringify({ slug, size: selectedSize })
-                  );
+                    if (!token) {
+                      setShowAuth(true);
+                      return;
+                    }
 
-                  setShowAuth(true);
-                  return;
-                }
+                    addToCart(slug, selectedSize);
+                  }}
+                  className="px-6 py-3 bg-green-600 text-white rounded"
+                >
+                  Add to Cart
+                </button>
 
-                addToCart(slug, selectedSize);
-              }}
-              className="px-6 py-3 bg-green-600 text-white rounded"
-            >
-              Add to Cart
-            </button>
+                <button
+                  onClick={() => {
+                    if (product.available_sizes?.length > 0 && !selectedSize) {
+                      alert("Please select a size");
+                      return;
+                    }
 
-            {!inWishlist ? (
-              <button
-                onClick={() => addToWishlist(slug)}
-                className="px-6 py-3 bg-red-600 text-white rounded hover:bg-red-700 transition"
-              >
-                Add to Wishlist
-              </button>
+                    // ❌ NO token check here
+                    setShowBuyNow(true);
+                  }}
+                  className="px-6 py-3 bg-black text-white rounded"
+                >
+                  Buy Now
+                </button>
+              </div>
             ) : (
-              <button
-                onClick={() => router.push("/wishlist")}
-                className="px-6 py-3 bg-black text-white rounded hover:bg-gray-800 transition"
-              >
-                Go to Wishlist
-              </button>
+              <p className="text-red-600 text-xl font-semibold">Out of Stock</p>
             )}
-            <button
-              onClick={() => {
-                if (!selectedSize) {
-                  alert("Please select a size");
-                  return;
-                }
+            <div>
+              {!inWishlist ? (
+                <button
+                  onClick={() => {
+                    if (!token) {
+                      setShowAuth(true);
+                      return;
+                    }
 
-                // ❌ NO token check here
-                setShowBuyNow(true);
-              }}
-              className="px-6 py-3 bg-black text-white rounded"
-            >
-              Buy Now
-            </button>
+                    addToWishlist(slug);
+                  }}
+                  className="px-6 py-3 bg-red-600 text-white rounded hover:bg-red-700 transition"
+                >
+                  Add to Wishlist
+                </button>
+              ) : (
+                <button
+                  onClick={() => router.push("/wishlist")}
+                  className="px-6 py-3 bg-black text-white rounded hover:bg-gray-800 transition"
+                >
+                  Go to Wishlist
+                </button>
+              )}
+            </div>
           </div>
           <div className="mt-3 p-3 bg-gray-100 rounded-lg flex justify-between text-sm">
             <span className="font-medium text-gray-700">

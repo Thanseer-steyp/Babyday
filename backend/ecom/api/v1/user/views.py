@@ -4,11 +4,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from user.models import Cart,Wishlist,Address,Order
+from user.models import Cart,Wishlist,Address,Order,ProductRating
 from public.models import Product
-from .serializers import CartSerializer,WishlistSerializer,AddressSerializer,OrderSerializer
+from .serializers import CartSerializer,WishlistSerializer,AddressSerializer,OrderSerializer,ProductRatingSerializer
 import razorpay
 from razorpay.errors import SignatureVerificationError
+from utils.email import send_admin_order_email
+from django.db.models import Sum
 
 
 class CreateOrderView(APIView):
@@ -17,6 +19,32 @@ class CreateOrderView(APIView):
     def post(self, request):
         data = request.data
         addr = data.get("address", {}) 
+        
+
+        product = Product.objects.get(title__iexact=data["title"])
+        size = data.get("size", "")
+
+        # size required ONLY if product has sizes
+        if product.available_sizes and not size:
+            return Response(
+                {"detail": "Size selection is required"},
+                status=400
+            )
+
+
+
+        sold_qty = Order.objects.filter(
+            product_name=product.title,
+            payment_status__in=["paid", "initiated"]  # prepaid + COD
+        ).aggregate(total=Sum("qty"))["total"] or 0
+
+        available_qty = product.stock_qty - sold_qty
+
+        if available_qty < int(data["qty"]):
+            return Response(
+                {"detail": f"Only {available_qty} items left"},
+                status=400
+            )
 
         # COD ORDER
         if data.get("payment_method") == "cod":
@@ -44,6 +72,8 @@ class CreateOrderView(APIView):
                 address_line=addr.get("address_line", ""),
                 landmark=addr.get("landmark", ""),
             )
+
+            send_admin_order_email(order)
 
             return Response({
                 "success": True,
@@ -122,6 +152,8 @@ class VerifyPaymentView(APIView):
             order.payment_channel = "upi"  # optional: detect dynamically
             order.save()
 
+            send_admin_order_email(order)
+
             return Response({"success": True})
 
         except (SignatureVerificationError, Order.DoesNotExist):
@@ -179,8 +211,7 @@ class AddToCartView(APIView):
 
     def post(self, request, slug):
         size = request.data.get("size")  # get selected size
-        if not size:
-            return Response({"message": "Size is required"}, status=400)
+        
 
         product = None
         for p in Product.objects.filter(is_available=True):
@@ -190,6 +221,13 @@ class AddToCartView(APIView):
 
         if not product:
             return Response({"detail": "Product not found"}, status=404)
+
+        if product.available_sizes and not size:
+            return Response(
+                {"message": "Please select a size"},
+                status=400
+            )
+
 
         cart_item, created = Cart.objects.get_or_create(
             user=request.user,
@@ -264,10 +302,21 @@ class UpdateCartQtyView(APIView):
                 {"detail": "Item not in cart"},
                 status=404
             )
+        sold_qty = Order.objects.filter(
+            product_name=product.title,
+            payment_status__in=["paid", "initiated"]
+        ).aggregate(total=Sum("qty"))["total"] or 0
 
+        available_stock = product.stock_qty - sold_qty
         # quantity logic (min=1, max=3)
-        if action == "increase" and cart_item.quantity < 3:
-            cart_item.quantity += 1
+        if action == "increase":
+            if cart_item.quantity < available_stock:
+                cart_item.quantity += 1
+            else : 
+                return Response(
+                    {"detail": f"Only {available_stock} items available"},
+                    status=400
+                )
 
         elif action == "decrease" and cart_item.quantity > 1:
             cart_item.quantity -= 1
@@ -277,7 +326,8 @@ class UpdateCartQtyView(APIView):
         return Response(
             {
                 "message": "Quantity updated",
-                "qty": cart_item.quantity
+                "qty": cart_item.quantity,
+                "available_stock": available_stock
             },
             status=200
         )
@@ -344,3 +394,40 @@ class OrderView(APIView):
         orders = Order.objects.filter(user=request.user).order_by("-created_at")
         serializer = OrderSerializer(orders, many=True, context={"request": request})
         return Response(serializer.data)
+
+
+
+class CreateRatingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, order_id):
+        rating = request.data.get("rating")
+        review = request.data.get("review", "")
+
+        if not rating or not (1 <= int(rating) <= 5):
+            return Response({"detail": "Invalid rating"}, status=400)
+
+        try:
+            order = Order.objects.get(
+                id=order_id,
+                user=request.user,
+                delivery_status="delivered"
+            )
+        except Order.DoesNotExist:
+            return Response(
+                {"detail": "Order not delivered"},
+                status=403
+            )
+
+        # ✅ SAFE & CORRECT
+        product = Product.objects.get(title=order.product_name)
+
+        ProductRating.objects.create(
+            product=product,
+            user=request.user,
+            order=order,
+            rating=rating,
+            review=review
+        )
+
+        return Response({"success": True}, status=201)

@@ -47,6 +47,7 @@ export const CartProvider = ({ children }) => {
     await api.post(`api/v1/user/cart/add/${slug}/`, { size });
 
     fetchCart(authToken);
+    alert("Added to cart")
   };
 
   // Remove from cart

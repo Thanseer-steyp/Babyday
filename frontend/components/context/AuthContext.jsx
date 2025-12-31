@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import axios from "axios";
+import { usePathname } from "next/navigation";
 
 const AuthContext = createContext();
 
@@ -10,6 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
 
   // 🔥 run EVERY TIME token changes
   useEffect(() => {
@@ -57,7 +59,7 @@ export const AuthProvider = ({ children }) => {
 
       // ⏰ AUTO logout when token expires
       const timer = setTimeout(logout, remainingTime);
-      fetchUser(); 
+      fetchUser();
 
       return () => clearTimeout(timer);
     } catch {
@@ -79,6 +81,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("refresh", refresh);
     setAccessToken(access); // 🔥 THIS triggers timer
     setUser({ username, email });
+
+    if (!pathname.startsWith("/checkout")) {
+      window.location.reload();
+    }
   };
 
   const logout = () => {
@@ -86,6 +92,11 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("refresh");
     setAccessToken(null);
     setUser(null);
+    alert("You have been logged out. Redirecting...");
+
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
 
   return (

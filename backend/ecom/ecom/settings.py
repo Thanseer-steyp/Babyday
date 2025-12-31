@@ -128,7 +128,11 @@ if platform.system() != "Windows":
     EMAIL_HOST_USER = "noreply.lifecraft@gmail.com"
     EMAIL_HOST_PASSWORD = "tupp rqej qjgb lwkg"
     DEFAULT_FROM_EMAIL = EMAIL_HOST_USER 
+    ORDER_NOTIFICATION_EMAIL = "thanseertpm5@gmail.com"
+
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-    EMAIL_HOST_USER = "lifecraft.dev@gmail.com"
+    EMAIL_HOST_USER = "noreply.lifecraft@gmail.com"
     DEFAULT_FROM_EMAIL = EMAIL_HOST_USER 
+    ORDER_NOTIFICATION_EMAIL = "thanseertpm5@gmail.com"
+

@@ -1,7 +1,8 @@
 from django.utils.text import slugify
 from rest_framework import serializers
-from user.models import Cart,Address,Order
+from user.models import Cart,Address,Order,ProductRating
 from public.models import Product
+from django.db.models import Sum
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -16,6 +17,7 @@ class CartSerializer(serializers.ModelSerializer):
     price = serializers.DecimalField(source="product.price", max_digits=10, decimal_places=2, read_only=True)
     image1 = serializers.ImageField(source="product.image1", read_only=True)
     slug = serializers.SerializerMethodField()
+    available_stock = serializers.SerializerMethodField() 
 
     class Meta:
         model = Cart
@@ -28,10 +30,19 @@ class CartSerializer(serializers.ModelSerializer):
             "slug",
             "quantity",
             "size",
+            'available_stock'
         ]
 
     def get_slug(self, obj):
         return slugify(obj.product.title)
+
+    def get_available_stock(self, obj):
+        sold_qty = Order.objects.filter(
+            product_name=obj.product.title,
+            payment_status__in=["paid", "initiated"]
+        ).aggregate(total=Sum("qty"))["total"] or 0
+
+        return obj.product.stock_qty - sold_qty
 
 
 
@@ -56,11 +67,21 @@ class WishlistSerializer(serializers.ModelSerializer):
 
 
 
+class ProductRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductRating
+        fields = ["id", "rating", "review", "created_at"]
+
+
+
 
 class OrderSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source="user.username", read_only=True)
     product_image = serializers.SerializerMethodField()
     product_category = serializers.SerializerMethodField()
+    is_reviewed = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
+    review = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -84,3 +105,17 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_product_category(self, obj):
         product = Product.objects.filter(title=obj.product_name).first()
         return product.product_category if product else None
+
+    def get_is_reviewed(self, obj):
+        return ProductRating.objects.filter(order=obj).exists()
+
+    def get_rating(self, obj):
+        rating = ProductRating.objects.filter(order=obj).first()
+        return rating.rating if rating else None
+
+    def get_review(self, obj):
+        rating = ProductRating.objects.filter(order=obj).first()
+        return rating.review if rating else None
+
+
+

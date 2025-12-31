@@ -68,9 +68,13 @@ export default function CartPage() {
 
                   <button
                     onClick={() => updateQty(item.slug, "increase")}
-                    disabled={item.quantity === 3}
+                    disabled={item.quantity >= item.available_stock}
                     className={`px-3 py-1 text-xl rounded 
-    ${item.quantity === 3 ? "text-gray-400" : "text-black hover:bg-gray-200"}`}
+    ${
+      item.quantity >= item.available_stock
+        ? "text-gray-400"
+        : "text-black hover:bg-gray-200"
+    }`}
                   >
                     +
                   </button>

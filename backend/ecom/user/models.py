@@ -77,7 +77,7 @@ class Order(models.Model):
         ("delivered", "Delivered"),
     ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     product_name = models.CharField(max_length=255)
     product_slug = models.SlugField()
     size = models.CharField(max_length=50, blank=True)
@@ -123,3 +123,25 @@ class Order(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.product_name} - {self.payment_method} ({self.payment_status})"
+
+
+
+class ProductRating(models.Model):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="reviews"
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    order = models.OneToOneField(Order, on_delete=models.CASCADE)
+
+    rating = models.PositiveSmallIntegerField()  # 1–5
+    review = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "product", "order")
+
+    def __str__(self):
+        return f"{self.product.title} - {self.rating}⭐"
