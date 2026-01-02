@@ -25,6 +25,25 @@ export default function CartPage() {
     0
   );
 
+  const handleCartCheckout = () => {
+  const items = cartItems.map((item) => ({
+    slug: item.slug,
+    title: item.title,
+    image: item.image,
+    size: item.size,
+    qty: item.qty,
+    price: item.price,
+    mrp: item.mrp,
+    discount: item.discount,
+    delivery_charge: item.delivery_charge,
+    total: item.total,
+  }));
+
+  localStorage.setItem("checkoutItems", JSON.stringify(items));
+  router.push("/checkout");
+};
+
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Your Cart</h1>
@@ -97,7 +116,7 @@ export default function CartPage() {
       <div className="mt-8 flex justify-between items-center">
         <h2 className="text-xl font-semibold">Total: ₹ {total}</h2>
 
-        <button className="px-6 py-3 bg-green-600 text-white rounded-lg">
+        <button className="px-6 py-3 bg-green-600 text-white rounded-lg" onClick={handleCartCheckout}>
           Checkout
         </button>
       </div>
