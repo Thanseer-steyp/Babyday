@@ -90,6 +90,9 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
+    localStorage.removeItem("checkoutItems");
+
+    
     setAccessToken(null);
     setUser(null);
     alert("You have been logged out. Redirecting...");

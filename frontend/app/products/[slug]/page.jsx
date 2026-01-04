@@ -112,7 +112,7 @@ export default function ProductDetailPage() {
     <div className="min-h-screen bg-gray-100 p-6">
       <button
         onClick={() => router.back()}
-        className="mb-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
+        className="mb-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-black"
       >
         &larr; Back
       </button>

@@ -18,49 +18,135 @@ class CreateOrderView(APIView):
 
     def post(self, request):
         data = request.data
+        items = data.get("items", [])
         addr = data.get("address", {}) 
+
+        if not items:
+            return Response({"detail": "No items to checkout"},status=400)
+        orders = []
+        grand_total = 0
+        calculated_items = [] 
         
+        for item in items:
+            product = Product.objects.get(title__iexact=item["title"])
 
-        product = Product.objects.get(title__iexact=data["title"])
-        size = data.get("size", "")
+            qty = int(item["qty"])
+            size = item.get("size", "")
+            
+            price = float(product.price)
+            mrp = float(product.mrp)
+            delivery = float(product.delivery_charge or 0)
 
-        # size required ONLY if product has sizes
-        if product.available_sizes and not size:
-            return Response(
-                {"detail": "Size selection is required"},
-                status=400
-            )
+            # size validation
+            if product.available_sizes and not size:
+                return Response(
+                    {"detail": f"Size required for {product.title}"},
+                    status=400
+                )
 
+            item_mrp = mrp * qty
+            item_discount = (mrp - price) * qty
+            item_price = price * qty
+            item_delivery_charge = delivery * qty
+            item_total = (price * qty) + item_delivery_charge
 
+            grand_total += item_total
 
-        sold_qty = Order.objects.filter(
-            product_name=product.title,
-            payment_status__in=["paid", "initiated"]  # prepaid + COD
-        ).aggregate(total=Sum("qty"))["total"] or 0
+            calculated_items.append({
+                "item": item,
+                "qty": qty,
+                "size": size,
+                "item_mrp": item_mrp,
+                "item_discount": item_discount,
+                "item_price":item_price,
+                "item_delivery_charge": item_delivery_charge,
+                "item_total": item_total,
+            })
 
-        available_qty = product.stock_qty - sold_qty
+            sold_qty = Order.objects.filter(
+                product_name=product.title,
+                payment_status__in=["paid", "initiated"]
+            ).aggregate(total=Sum("qty"))["total"] or 0
 
-        if available_qty < int(data["qty"]):
-            return Response(
-                {"detail": f"Only {available_qty} items left"},
-                status=400
-            )
+            available_qty = product.stock_qty - sold_qty
+
+            if available_qty < qty:
+                return Response(
+                    {"detail": f"Only {available_qty} left for {product.title}"},
+                    status=400
+                )
 
         # COD ORDER
         if data.get("payment_method") == "cod":
+            for calc in calculated_items:
+
+                item = calc["item"]
+                order = Order.objects.create(
+                    user=request.user,
+                    product_name=item["title"],
+                    product_slug=item["slug"],
+                    qty=calc["qty"],
+                    size=calc["size"],
+
+                    price=calc["item_price"],
+                    mrp=calc["item_mrp"],    
+                    discount=calc["item_discount"],
+                    delivery_charge=calc["item_delivery_charge"],
+                    total=calc["item_total"],
+
+                    payment_method="cod",
+                    payment_status="initiated",  # COD is unpaid initially
+
+                    name=addr.get("name", ""),
+                    phone=addr.get("phone", ""),
+                    alt_phone=addr.get("alt_phone", ""),
+                    pincode=addr.get("pincode", ""),
+                    state=addr.get("state", ""),
+                    city=addr.get("city", ""),
+                    location=addr.get("location", ""),
+                    address_line=addr.get("address_line", ""),
+                    landmark=addr.get("landmark", ""),
+                )
+                orders.append(order)
+            Cart.objects.filter(user=request.user).delete()
+            send_admin_order_email(orders)
+
+            return Response({
+                "success": True,
+                "order_id": order.id,
+                "order_count": len(orders),
+                "grand_total": grand_total,
+            })
+
+        # PREPAID ORDER
+        client = razorpay.Client(
+            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+        )
+
+        razorpay_order = client.order.create({
+            "amount": int(grand_total * 100),
+            "currency": "INR",
+            "payment_capture": 1,
+        })
+
+        for calc in calculated_items:
+            item = calc["item"]
             order = Order.objects.create(
                 user=request.user,
-                product_name=data["title"],
-                product_slug=data["slug"],
-                qty=data["qty"],
-                size=data.get("size", ""),
-                price=data["price"],
-                mrp=data["mrp"],    
-                discount=data["discount"],
-                delivery_charge=data["delivery_charge"],
-                total=data["total"],
-                payment_method="cod",
-                payment_status="initiated",  # COD is unpaid initially
+                product_name=item["title"],
+                product_slug=item["slug"],
+                qty=calc["qty"],
+                size=calc["size"],
+
+                price=calc["item_price"],
+                mrp=calc["item_mrp"],
+                discount=calc["item_discount"],
+                delivery_charge=calc["item_delivery_charge"],
+                total=calc["item_total"],
+
+                payment_method="prepaid",
+                razorpay_order_id=razorpay_order["id"],
+                payment_status="initiated",
 
                 name=addr.get("name", ""),
                 phone=addr.get("phone", ""),
@@ -72,56 +158,16 @@ class CreateOrderView(APIView):
                 address_line=addr.get("address_line", ""),
                 landmark=addr.get("landmark", ""),
             )
-
-            send_admin_order_email(order)
-
-            return Response({
-                "success": True,
-                "order_id": order.id
-            })
-
-        # PREPAID ORDER
-        client = razorpay.Client(
-            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
-        )
-
-        razorpay_order = client.order.create({
-            "amount": int(float(data["total"]) * 100),
-            "currency": "INR",
-            "payment_capture": 1,
-        })
-
-        order = Order.objects.create(
-            user=request.user,
-            product_name=data["title"],
-            product_slug=data["slug"],
-            qty=data["qty"],
-            size=data.get("size", ""),
-            price=data["price"],
-            mrp=data["mrp"],
-            discount=data["discount"],
-            delivery_charge=data["delivery_charge"],
-            total=data["total"],
-            payment_method="prepaid",
-            razorpay_order_id=razorpay_order["id"],
-            payment_status="initiated",
-
-            name=addr.get("name", ""),
-            phone=addr.get("phone", ""),
-            alt_phone=addr.get("alt_phone", ""),
-            pincode=addr.get("pincode", ""),
-            state=addr.get("state", ""),
-            city=addr.get("city", ""),
-            location=addr.get("location", ""),
-            address_line=addr.get("address_line", ""),
-            landmark=addr.get("landmark", ""),
-        )
+            orders.append(order)
 
         return Response({
+            "success": True,
+            "db_order_id": order.id,
+            "order_count": len(orders),
+            "grand_total": grand_total,
             "order_id": razorpay_order["id"],
             "amount": razorpay_order["amount"],
             "razorpay_key": settings.RAZORPAY_KEY_ID,
-            "title": order.product_name,
         })
 
 
@@ -142,17 +188,24 @@ class VerifyPaymentView(APIView):
                 "razorpay_signature": data["razorpay_signature"],
             })
 
-            order = Order.objects.get(
-                razorpay_order_id=data["razorpay_order_id"]
+            orders = Order.objects.filter(
+                razorpay_order_id=data["razorpay_order_id"],
+                user=request.user
             )
+            if not orders.exists():
+                return Response(
+                    {"success": False, "message": "Order not found"},
+                    status=404
+                )
 
-            order.razorpay_payment_id = data["razorpay_payment_id"]
-            order.razorpay_signature = data["razorpay_signature"]
-            order.payment_status = "paid"
-            order.payment_channel = "upi"  # optional: detect dynamically
-            order.save()
-
-            send_admin_order_email(order)
+            orders.update(
+                razorpay_payment_id=data["razorpay_payment_id"],
+                razorpay_signature=data["razorpay_signature"],
+                payment_status="paid",
+                payment_channel="upi",
+            )
+            Cart.objects.filter(user=request.user).delete()
+            send_admin_order_email(list(orders))
 
             return Response({"success": True})
 
@@ -247,6 +300,10 @@ class RemoveFromCartView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, slug):
+        size = request.data.get("size")
+        if not size:
+            return Response({"detail": "Size required"}, status=400)
+
         product = None
         for p in Product.objects.all():
             if slugify(p.title) == slug:
@@ -256,7 +313,7 @@ class RemoveFromCartView(APIView):
         if not product:
             return Response({"detail": "Product not found"}, status=404)
 
-        Cart.objects.filter(user=request.user, product=product).delete()
+        Cart.objects.filter(user=request.user, product=product,size=request.data.get("size")).delete()
         return Response({"message": "Removed from cart"}, status=200)
 
 
@@ -274,7 +331,17 @@ class UpdateCartQtyView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, slug):
-        action = request.data.get("action")  # "increase" or "decrease"
+        action = request.data.get("action")
+        size = request.data.get("size")
+
+
+        if not size:
+            return Response(
+                {"detail": "Size is required"},
+                status=400
+            )
+
+         # "increase" or "decrease"
 
         if action not in ["increase", "decrease"]:
             return Response(
@@ -294,8 +361,9 @@ class UpdateCartQtyView(APIView):
 
         cart_item = Cart.objects.filter(
             user=request.user,
-            product=product
-        ).first()
+            product=product,
+            size=size
+        ).first() 
 
         if not cart_item:
             return Response(

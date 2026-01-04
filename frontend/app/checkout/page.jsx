@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AuthModal from "@/components/includes/AuthModal";
 import api from "@/components/config/Api";
 import { useAuth } from "@/components/context/AuthContext";
+import { useCart } from "@/components/context/CartContext";
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -46,28 +47,30 @@ export default function CheckoutPage() {
   const [showCodModal, setShowCodModal] = useState(false);
 
   const [showAuth, setShowAuth] = useState(false);
-  const [checkoutItem, setCheckoutItem] = useState(null);
+  const [checkoutItems, setCheckoutItems] = useState([]);
+  const { clearCart } = useCart();
+
+  useEffect(() => {
+    const stored = localStorage.getItem("checkoutItems");
+    if (stored) {
+      setCheckoutItems(JSON.parse(stored));
+    }
+  }, []);
+
   const router = useRouter();
 
   const confirmCodOrder = async () => {
     try {
       await api.post("api/v1/user/create-order/", {
-        title: checkoutItem.title,
-        slug: checkoutItem.slug,
-        qty: checkoutItem.qty,
-        price: checkoutItem.price,
-        total: checkoutItem.total,
-        size: checkoutItem.size,
-        mrp: checkoutItem.mrp,
-        delivery_charge: checkoutItem.delivery_charge,
-        discount: checkoutItem.discount,
+        items: checkoutItems,
         payment_method: "cod",
         address: address,
       });
 
       alert("Order placed successfully (Cash on Delivery)");
       setShowCodModal(false);
-      localStorage.removeItem("checkoutItem");
+      localStorage.removeItem("checkoutItems");
+      clearCart();
       router.push("/orders");
       // router.push("/orders");
     } catch (err) {
@@ -76,7 +79,7 @@ export default function CheckoutPage() {
   };
 
   const handlePayment = async () => {
-    if (!checkoutItem) return;
+    if (!checkoutItems.length) return;
 
     if (paymentMethod === "cod") {
       setShowCodModal(true);
@@ -92,27 +95,19 @@ export default function CheckoutPage() {
     try {
       // 1️⃣ Create order in backend
       const orderRes = await api.post("api/v1/user/create-order/", {
-        title: checkoutItem.title,
-        slug: checkoutItem.slug,
-        qty: checkoutItem.qty,
-        price: checkoutItem.price,
-        total: checkoutItem.total,
-        mrp: checkoutItem.mrp,
-        size: checkoutItem.size,
-        delivery_charge: checkoutItem.delivery_charge,
-        discount: checkoutItem.discount,
+        items: checkoutItems,
         payment_method: paymentMethod,
         address: address,
       });
 
-      const { order_id, amount, razorpay_key, title: product } = orderRes.data;
+      const { order_id, amount, razorpay_key } = orderRes.data;
 
       // 2️⃣ Open Razorpay checkout
       const options = {
         key: razorpay_key,
         amount,
         currency: "INR",
-        name: `Babyday | ${product}`,
+        name: "BABYDAY",
         order_id,
         handler: async (response) => {
           await api.post("api/v1/user/verify-payment/", {
@@ -121,7 +116,8 @@ export default function CheckoutPage() {
             razorpay_signature: response.razorpay_signature,
           });
           alert("Payment Successful!");
-          localStorage.removeItem("checkoutItem");
+          localStorage.removeItem("checkoutItems");
+          clearCart();
           router.push("/orders");
         },
       };
@@ -157,13 +153,6 @@ export default function CheckoutPage() {
     address_line: "",
     landmark: "",
   });
-
-  /* ---------------- INIT ---------------- */
-  useEffect(() => {
-    const item = localStorage.getItem("checkoutItem");
-    if (!item) return;
-    setCheckoutItem(JSON.parse(item));
-  }, []);
 
   useEffect(() => {
     if (user) {
@@ -201,7 +190,23 @@ export default function CheckoutPage() {
     }
   };
 
-  if (!checkoutItem) return null;
+  const mrp = checkoutItems.reduce(
+    (sum, item) => sum + Number(item.mrp) * item.qty,
+    0
+  );
+  const subtotal = checkoutItems.reduce(
+    (sum, item) => sum + Number(item.price) * item.qty,
+    0
+  );
+  const delivery = checkoutItems.reduce(
+    (sum, item) => sum + Number(item.delivery_charge) * item.qty,
+    0
+  );
+
+  const total = subtotal + delivery;
+  const discount = mrp - subtotal;
+
+  if (!checkoutItems.length) return null;
 
   /* ---------------- UI ---------------- */
   return (
@@ -357,64 +362,68 @@ export default function CheckoutPage() {
         )}
       </div>
       <div className="w-1/5 bg-white">
-        {checkoutItem && (
-          <div className="bg-gray-100 rounded-xl p-4 space-y-3 text-black">
-            <h2 className="font-bold text-lg">Order Summary</h2>
+        <div className="bg-gray-100 rounded-xl p-4 space-y-3 text-black">
+          <h2 className="font-bold text-lg">Order Summary</h2>
 
-            <div className="flex gap-3 items-center">
+          {checkoutItems.map((item, idx) => (
+            <div key={idx} className="flex gap-3 items-center">
               <img
-                src={checkoutItem.image}
-                alt={checkoutItem.title}
+                src={item.image}
+                alt={item.title}
                 className="w-20 h-20 object-cover rounded-lg border"
               />
               <div className="flex-1">
-                <p className="font-semibold">{checkoutItem.title}</p>
-                <p className="text-sm">Size: {checkoutItem.size}</p>
-                <p className="text-sm">Qty: {checkoutItem.qty}</p>
+                <p className="font-semibold">{item.title}</p>
+                <p className="text-sm">Size: {item.size}</p>
+                <p className="text-sm">Qty: {item.qty}</p>
+                <p className="text-sm">
+                  ₹{Number(item.price).toFixed(0)} +{" "}
+                  {Number(item.delivery_charge).toFixed(0)} Shipping
+                </p>
               </div>
             </div>
+          ))}
 
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span>MRP</span>
-                <span>₹{checkoutItem.mrp}</span>
-              </div>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span>MRP</span>
+              <span>₹{mrp}</span>
+            </div>
 
-              <div className="flex justify-between text-green-600">
-                <span>Discount</span>
-                <span>-₹{checkoutItem.discount}</span>
-              </div>
+            <div className="flex justify-between text-green-600">
+              <span>Discount</span>
+              <span>-₹{discount}</span>
+            </div>
+            <hr />
 
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>₹{checkoutItem.price}</span>
-              </div>
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>₹{subtotal}</span>
+            </div>
 
-              <div className="flex justify-between">
-                <span>Delivery Charge</span>
-                <span>
-                  {checkoutItem.delivery_charge === 0 ? (
-                    <span className="text-green-600 font-medium">Free</span>
-                  ) : (
-                    `₹${checkoutItem.delivery_charge}`
-                  )}
-                </span>
-              </div>
 
-              <hr />
+              <span className="text-center block text-xl">+</span>
 
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total</span>
-                <span>₹{checkoutItem.total}</span>
-              </div>
+
+            <div className="flex justify-between">
+              <span>Delivery</span>
+              <span>{delivery === 0 ? "Free" : `₹${delivery}`}</span>
+            </div>
+
+            <hr />
+
+            <div className="flex justify-between font-bold text-lg">
+              <span>Total</span>
+              <span>₹{total}</span>
             </div>
           </div>
-        )}
+        </div>
       </div>
       <CodConfirmModal
         open={showCodModal}
         onClose={() => setShowCodModal(false)}
         onConfirm={confirmCodOrder}
+        total={total}
       />
 
       {/* AUTH MODAL */}
@@ -439,7 +448,7 @@ function Step({ label, active, done }) {
   );
 }
 
-function CodConfirmModal({ open, onClose, onConfirm }) {
+function CodConfirmModal({ open, onClose, onConfirm,total }) {
   if (!open) return null;
 
   return (
@@ -447,7 +456,7 @@ function CodConfirmModal({ open, onClose, onConfirm }) {
       <div className="bg-white rounded-xl p-6 w-full max-w-sm text-black">
         <h2 className="text-lg font-bold mb-2">Confirm Cash on Delivery</h2>
         <p className="text-sm text-gray-600 mb-4">
-          You will pay ₹ on delivery. Please confirm to place your order.
+          You will pay ₹{total} on delivery. Please confirm to place your order.
         </p>
 
         <div className="flex gap-3 justify-end">

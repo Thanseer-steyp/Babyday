@@ -18,6 +18,8 @@ class CartSerializer(serializers.ModelSerializer):
     image1 = serializers.ImageField(source="product.image1", read_only=True)
     slug = serializers.SerializerMethodField()
     available_stock = serializers.SerializerMethodField() 
+    mrp = serializers.DecimalField(source="product.mrp",max_digits=10,decimal_places=2)
+    delivery_charge = serializers.DecimalField(source="product.delivery_charge",max_digits=10,decimal_places=2)
 
     class Meta:
         model = Cart
@@ -26,6 +28,8 @@ class CartSerializer(serializers.ModelSerializer):
             "product_id",
             "title",
             "price",
+            "mrp",
+            "delivery_charge",
             "image1",
             "slug",
             "quantity",

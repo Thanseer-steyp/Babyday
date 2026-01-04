@@ -17,23 +17,28 @@ export default function BuyNowModal({
   const qty = 1;
 
   const handleCheckout = () => {
+    if (product.available_sizes && !size) {
+      alert("Please select a size");
+      return;
+    }
     // always save checkout intent
     localStorage.setItem(
-      "checkoutItem",
-      JSON.stringify({
-        slug: product.slug,
-        title: product.title,
-        image: product.image1,
-        size,
-        qty,
-        price,
-        mrp,
-        discount,
-        delivery_charge: charge,
-        total,
-      })
+      "checkoutItems",
+      JSON.stringify([
+        {
+          slug: product.slug,
+          title: product.title,
+          image: product.image1,
+          size,
+          qty,
+          price,
+          mrp,
+          discount,
+          delivery_charge: charge,
+          total,
+        },
+      ])
     );
-
 
     window.location.href = "/checkout";
   };
@@ -95,10 +100,7 @@ export default function BuyNowModal({
 
         {/* Actions */}
         <div className="mt-6 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2 border rounded"
-          >
+          <button onClick={onClose} className="flex-1 py-2 border rounded">
             Cancel
           </button>
 

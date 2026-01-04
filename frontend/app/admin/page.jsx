@@ -374,7 +374,7 @@ export default function AdminProductsPage() {
                 <label>Stocks Left</label>
                 <input
                   type="text"
-                  value={editing.available_stock}
+                  value={editing?.available_stock}
                   disabled
                   readOnly
                   className="input bg-gray-100 cursor-not-allowed"
@@ -392,7 +392,7 @@ export default function AdminProductsPage() {
                     setForm((prev) => ({
                       ...prev,
                       add_qty: e.target.value,
-                      stock_qty: (editing.stock_qty || 0) + addQty,
+                      stock_qty: (editing?.stock_qty || 0) + addQty,
                     }));
                   }}
                   className="input"

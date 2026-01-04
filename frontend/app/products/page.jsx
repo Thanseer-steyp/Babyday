@@ -16,7 +16,7 @@ export default function ProductsPage() {
           "http://localhost:8000/api/v1/public/products/"
         );
         setProducts(res.data);
-        console.log(res.data)
+        console.log(res.data);
       } catch (err) {
         setError("Failed to fetch");
       } finally {
@@ -45,7 +45,9 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
-      <h1 className="text-3xl font-bold text-center mb-8 text-black">Products</h1>
+      <h1 className="text-3xl font-bold text-center mb-8 text-black">
+        Products
+      </h1>
 
       {products.length === 0 ? (
         <p className="text-center text-gray-500">No products available</p>
@@ -64,22 +66,32 @@ export default function ProductsPage() {
                 />
               )}
 
-              <h2 className="text-lg font-semibold mb-1 text-black capitalize">{product.title}</h2>
+              <h2 className="text-lg font-semibold mb-1 text-black capitalize">
+                {product.title}
+              </h2>
 
               <p className="text-sm text-gray-600 line-clamp-2 mb-3">
                 {product.age_limits || product.material_type}
               </p>
-
-              <p className="text-xl font-bold text-green-600">
-                ₹ {product.price}
+              <div className="flex gap-2">
+                <p className="text-xl font-bold line-through text-gray-400">
+                ₹{product.mrp}
               </p>
-
+              <p className="text-xl font-bold text-green-600">
+                ₹{product.price}
+              </p>
+              <p className="font-bold text-red-600">
+                + ₹{product.delivery_charge}
+              </p>
+              </div>
 
               <Link
-              key={product.id}
-              href={`/products/${product.slug}`}
-              className="bg-white shadow hover:shadow-lg transition p-1 block text-black border border-black mt-2 text-center"
-            >View</Link>
+                key={product.id}
+                href={`/products/${product.slug}`}
+                className="bg-white shadow hover:shadow-lg transition p-1 block text-black border border-black mt-2 text-center"
+              >
+                View
+              </Link>
             </div>
           ))}
         </div>

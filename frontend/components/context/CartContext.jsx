@@ -47,16 +47,17 @@ export const CartProvider = ({ children }) => {
     await api.post(`api/v1/user/cart/add/${slug}/`, { size });
 
     fetchCart(authToken);
-    alert("Added to cart")
+    alert("Added to cart");
   };
 
   // Remove from cart
-  const removeFromCart = async (slug) => {
+  const removeFromCart = async (slug, size) => {
     if (!token) return;
 
     await axios.delete(
       `http://localhost:8000/api/v1/user/cart/remove/${slug}/`,
       {
+        data: { size },
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -66,12 +67,16 @@ export const CartProvider = ({ children }) => {
     fetchCart(token);
   };
 
-  const updateQty = async (slug, action) => {
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
+  const updateQty = async (slug, action, size) => {
     if (!token) return;
 
     await axios.patch(
       `http://localhost:8000/api/v1/user/cart/update/${slug}/`,
-      { action }, // "increase" | "decrease"
+      { action, size }, // "increase" | "decrease"
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -94,6 +99,7 @@ export const CartProvider = ({ children }) => {
         updateQty,
         loading,
         token,
+        clearCart,
       }}
     >
       {children}

@@ -69,6 +69,7 @@ export default function OrdersPage() {
                 <p>Order ID: #{order.id}</p>
                 <p>Size: {order.size || "N/A"}</p>
                 <p>Quantity: {order.qty}</p>
+                <p>Total: {order.total}</p>
                 <p>Payment: {order.payment_method.toUpperCase()}</p>
                 <p>
                   Ordered on: {new Date(order.created_at).toLocaleDateString()}
