@@ -6,7 +6,10 @@ from rest_framework import status
 from rest_framework.permissions import IsAdminUser
 
 from public.models import Product
+from user.models import Order
+from .serializers import PrepaidPaidOrderSerializer
 from api.v1.public.serializers import ProductSerializer
+from api.v1.user.serializers import OrderSerializer
 
 
 class ManageProductView(APIView):
@@ -77,3 +80,31 @@ class ManageProductDetailView(APIView):
             {"detail": "Product deleted successfully"},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
+class PrepaidPaidOrderListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        orders = Order.objects.filter(
+            payment_method="prepaid",
+            payment_status="paid"
+        ).order_by("-created_at")
+
+        serializer = PrepaidPaidOrderSerializer(
+            orders, many=True, context={"request": request}
+        )
+        return Response(serializer.data, status=200)
+    
+
+class AllOrdersView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        orders = Order.objects.all().order_by("-created_at")
+        serializer = OrderSerializer(
+            orders,
+            many=True,
+            context={"request": request}
+        )
+        return Response(serializer.data)

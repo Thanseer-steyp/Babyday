@@ -455,7 +455,7 @@ class WishlistListView(APIView):
     
 
 
-class OrderView(APIView):
+class OrderListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):

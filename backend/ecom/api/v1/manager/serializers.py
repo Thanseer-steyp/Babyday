@@ -1,23 +1,24 @@
 from rest_framework import serializers
+from user.models import Order
 from public.models import Product
-from django.utils.text import slugify
 
-# class ProductSerializer(serializers.ModelSerializer):
-#     slug = serializers.SerializerMethodField()
+class PrepaidPaidOrderSerializer(serializers.ModelSerializer):
+    user = serializers.CharField(source="user.username", read_only=True)
+    product_image = serializers.SerializerMethodField()
 
-    
-#     class Meta:
-#         model = Product
-#         fields = '__all__'
-        
+    class Meta:
+        model = Order
+        fields = "__all__"
 
-#     def get_slug(self, obj):
-#         return slugify(obj.title)
-
-#     def get_available_stock(self, obj):
-#         sold_qty = Order.objects.filter(
-#             product_name=obj.title,
-#             payment_status__in=["paid", "initiated"]
-#         ).aggregate(total=Sum("qty"))["total"] or 0
-
-#         return obj.stock_qty - sold_qty
+    def get_product_image(self, obj):
+        try:
+            product = Product.objects.get(title=obj.product_name)
+            if product.image1:
+                request = self.context.get("request")
+                return (
+                    request.build_absolute_uri(product.image1.url)
+                    if request else product.image1.url
+                )
+            return None
+        except Product.DoesNotExist:
+            return None

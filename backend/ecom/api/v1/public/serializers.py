@@ -33,3 +33,5 @@ class ProductSerializer(serializers.ModelSerializer):
         ).aggregate(total=Sum("qty"))["total"] or 0
 
         return obj.stock_qty - sold_qty
+    
+
