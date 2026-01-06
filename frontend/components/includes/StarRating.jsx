@@ -29,7 +29,7 @@ export default function StarRating({ orderId, onRated }) {
   return (
     <div className="w-full space-y-2">
       {/* ⭐ Stars */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-center gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
@@ -64,7 +64,7 @@ export default function StarRating({ orderId, onRated }) {
           <button
             disabled={loading}
             onClick={submitRating}
-            className="px-4 py-1 text-sm bg-black text-white rounded"
+            className="px-4 py-1 text-sm bg-black text-white rounded w-full"
           >
             {loading ? "Submitting..." : "Submit Review"}
           </button>

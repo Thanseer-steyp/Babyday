@@ -69,7 +69,6 @@ class Order(models.Model):
         ("card", "Card"),
         ("netbanking", "NetBanking"),
         ("wallet", "Wallet"),
-        ("unknown", "Unknown"),
     ]
     DELIVERY_STATUS_CHOICES = [
         ("ordered", "Ordered"),
@@ -89,7 +88,7 @@ class Order(models.Model):
         max_length=20, choices=PAYMENT_METHOD_CHOICES, default="prepaid"
     )
     payment_channel = models.CharField(
-        max_length=20, choices=PAYMENT_CHANNEL_CHOICES, default="unknown"
+        max_length=20, choices=PAYMENT_CHANNEL_CHOICES, blank=True
     )
     delivery_charge = models.FloatField(default=0)
     total = models.FloatField()

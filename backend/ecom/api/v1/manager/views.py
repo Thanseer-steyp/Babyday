@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAdminUser
 
 from public.models import Product
 from user.models import Order
-from .serializers import PrepaidPaidOrderSerializer
+from .serializers import (PrepaidPaidOrderSerializer,PendingShipmentOrdersSerializer,IntransitOrdersSerializer,DeliveredOrdersSerializer)
 from api.v1.public.serializers import ProductSerializer
 from api.v1.user.serializers import OrderSerializer
 
@@ -82,7 +82,7 @@ class ManageProductDetailView(APIView):
         )
 
 
-class PrepaidPaidOrderListView(APIView):
+class PrepaidPaidOrderView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
@@ -108,3 +108,90 @@ class AllOrdersView(APIView):
             context={"request": request}
         )
         return Response(serializer.data)
+    
+
+class PendingShipmentOrdersView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        orders = Order.objects.filter(
+            delivery_status="ordered",
+        ).order_by("-created_at")
+
+        serializer = PrepaidPaidOrderSerializer(
+            orders, many=True, context={"request": request}
+        )
+        return Response(serializer.data, status=200)
+    
+class IntransitOrdersView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        orders = Order.objects.filter(
+            delivery_status="shipped",
+        ).order_by("-created_at")
+
+        serializer = PrepaidPaidOrderSerializer(
+            orders, many=True, context={"request": request}
+        )
+        return Response(serializer.data, status=200)
+    
+
+class DeliveredOrdersView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        orders = Order.objects.filter(
+            delivery_status="delivered",
+        ).order_by("-created_at")
+
+        serializer = PrepaidPaidOrderSerializer(
+            orders, many=True, context={"request": request}
+        )
+        return Response(serializer.data, status=200)
+    
+
+class UpdateDeliveryStatusView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response(
+                {"detail": "Order not found"},
+                status=404
+            )
+
+        # Optional fields (update only if provided)
+        delivery_status = request.data.get("delivery_status")
+        delivery_partner = request.data.get("delivery_partner")
+        tracking_code = request.data.get("tracking_code")
+        remarks = request.data.get("remarks")
+
+
+        if delivery_status:
+            order.delivery_status = delivery_status
+
+        if delivery_partner is not None:
+            order.delivery_partner = delivery_partner
+
+        if tracking_code is not None:
+            order.tracking_code = tracking_code
+
+        if remarks is not None:
+            order.remarks = remarks
+
+        order.save()
+
+        return Response(
+            {
+                "success": True,
+                "order_id": order.id,
+                "delivery_status": order.delivery_status,
+                "delivery_partner": order.delivery_partner,
+                "tracking_code": order.tracking_code,
+                "remarks": order.remarks,
+            },
+            status=200
+        )

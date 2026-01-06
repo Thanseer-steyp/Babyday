@@ -2,11 +2,15 @@
 
 import axios from "axios";
 import { useEffect, useState } from "react";
+import OrderCard from "../../components/includes/OrderCard";
 
 const TABS = [
   { key: "products", label: "Products" },
   { key: "orders", label: "All Orders" },
   { key: "prepaid", label: "All Prepaid Orders" },
+  { key: "pending", label: "Pending Shipment Orders" },
+  { key: "intransit", label: "Intransit Orders" },
+  { key: "delivered", label: "Delivered Orders" },
 ];
 
 const AGE_CHOICES = [
@@ -82,11 +86,74 @@ export default function AdminProductsPage() {
   const [active, setActive] = useState("products");
   const [orders, setOrders] = useState([]);
   const [prepaidOrders, setPrepaidOrders] = useState([]);
-  const [deliveryFilter, setDeliveryFilter] = useState("all");
+  const [pendingShipmentOrders, setPendingShipmentOrders] = useState([]);
+  const [intransitOrders, setIntransitOrders] = useState([]);
+  const [deliveredOrders, setDeliveredOrders] = useState([]);
+  const [me, setMe] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [copiedOrderId, setCopiedOrderId] = useState(null);
+
+  const renderOrderSection = (title, ordersList, emptyMessage) => (
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold mb-4">{title}</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {ordersList.map((order) => (
+          <OrderCard
+            key={order.id}
+            order={order}
+            copiedOrderId={copiedOrderId}
+            onCopyAddress={copyAddress}
+            onDeliveryUpdated={refreshOrders}
+          />
+        ))}
+      </div>
+      {ordersList.length === 0 && (
+        <p className="text-gray-500 mt-6 text-center">{emptyMessage}</p>
+      )}
+    </div>
+  );
+
+  const copyAddress = async (order) => {
+    const address = `${order.name}\n${order.phone}${
+      order.alt_phone ? ` / ${order.alt_phone}` : ""
+    }\n${order.address_line}, ${order.location}\n${order.city}, ${
+      order.state
+    } - ${order.pincode}${
+      order.landmark ? `\nLandmark: ${order.landmark}` : ""
+    }`;
+
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedOrderId(order.id);
+      setTimeout(() => {
+        setCopiedOrderId(null);
+      }, 2000);
+    } catch (error) {
+      alert("Failed to copy address");
+    }
+  };
 
   const authHeader = {
     Authorization: `Bearer ${localStorage.getItem("access")}`,
   };
+
+  const loadMe = async () => {
+    try {
+      const res = await axios.get("http://localhost:8000/api/v1/user/me/", {
+        headers: authHeader,
+      });
+
+      setMe(res.data);
+    } catch (err) {
+      console.error("Unauthorized", err);
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+  useEffect(() => {
+    loadMe();
+  }, []);
+
   // 👇 define it OUTSIDE useEffect
   const loadProducts = async () => {
     try {
@@ -109,6 +176,16 @@ export default function AdminProductsPage() {
     setOrders(res.data);
   };
 
+  const refreshOrders = async () => {
+    await Promise.all([
+      loadOrders(),
+      loadPrepaidOrders(),
+      loadPendingShipmentOrders(),
+      loadIntransitOrders(),
+      loadDeliveredOrders(),
+    ]);
+  };
+
   const loadPrepaidOrders = async () => {
     const res = await axios.get(
       "http://localhost:8000/api/v1/manager/orders/prepaid/paid/",
@@ -117,17 +194,38 @@ export default function AdminProductsPage() {
     setPrepaidOrders(res.data);
   };
 
+  const loadPendingShipmentOrders = async () => {
+    const res = await axios.get(
+      "http://localhost:8000/api/v1/manager/orders/pending-shipments/",
+      { headers: authHeader }
+    );
+    setPendingShipmentOrders(res.data);
+  };
+
+  const loadIntransitOrders = async () => {
+    const res = await axios.get(
+      "http://localhost:8000/api/v1/manager/orders/intransit/",
+      { headers: authHeader }
+    );
+    setIntransitOrders(res.data);
+  };
+
+  const loadDeliveredOrders = async () => {
+    const res = await axios.get(
+      "http://localhost:8000/api/v1/manager/orders/delivered/",
+      { headers: authHeader }
+    );
+    setDeliveredOrders(res.data);
+  };
+
   useEffect(() => {
     loadProducts();
     loadOrders();
     loadPrepaidOrders();
+    loadPendingShipmentOrders();
+    loadIntransitOrders();
+    loadDeliveredOrders();
   }, []);
-
-  const filteredPrepaidOrders =
-    deliveryFilter === "all"
-      ? prepaidOrders
-      : prepaidOrders.filter((o) => o.delivery_status === deliveryFilter);
-      
 
   /* ---------- FORM ---------- */
   const openCreate = () => {
@@ -261,6 +359,19 @@ export default function AdminProductsPage() {
       console.error("Failed to delete product:", error);
     }
   };
+
+  if (loadingUser) {
+    return <p className="p-6">Checking permissions...</p>;
+  }
+
+  if (!me?.is_superuser) {
+    return (
+      <div className="p-10 text-center text-red-600">
+        <h1 className="text-2xl font-bold">403 – Access Denied</h1>
+        <p>You are not allowed to view this page.</p>
+      </div>
+    );
+  }
 
   /* ================= RENDER ================= */
   return (
@@ -646,115 +757,38 @@ export default function AdminProductsPage() {
           </div>
         )}
 
-        {active === "orders" && (
-          <div className="p-6">
-            <h1 className="text-2xl font-semibold mb-4">All Orders</h1>
-            <div className="flex gap-2 bg-white">
-              <button
-                onClick={() => setDeliveryFilter("all")}
-                className={`px-3 py-1 rounded ${
-                  deliveryFilter === "all"
-                    ? "bg-gray-500 text-white"
-                    : "bg-gray-200 text-black"
-                }`}
-              >
-                All
-              </button>
 
-              <button
-                onClick={() => setDeliveryFilter("ordered")}
-                className={`px-3 py-1 rounded ${
-                  deliveryFilter === "ordered"
-                    ? "bg-gray-500 text-white"
-                    : "bg-gray-200 text-black"
-                }`}
-              >
-                Pending Shipment
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {orders.map((o) => (
-                <div
-                  key={o.id}
-                  className="bg-white p-4 rounded shadow flex gap-4"
-                >
-                  <img
-                    src={o.product_image}
-                    className="w-16 h-16 object-cover rounded"
-                  />
-                  <div>
-                    <p className="font-medium text-black">{o.product_name}</p>
-                    <p className="text-sm text-gray-500">
-                      ₹{o.total} • {o.payment_method}
-                    </p>
-                    <p className="text-black text-sm">Qty: {o.qty}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {active === "prepaid" && (
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h1 className="text-2xl font-semibold">Prepaid Paid Orders</h1>
+        {active === "orders" &&
+          renderOrderSection("All Orders", orders, "No orders found.")}
 
-              <div className="flex gap-2 bg-white">
-                <button
-                  onClick={() => setDeliveryFilter("all")}
-                  className={`px-3 py-1 rounded ${
-                    deliveryFilter === "all"
-                      ? "bg-gray-500 text-white"
-                      : "bg-gray-200 text-black"
-                  }`}
-                >
-                  All
-                </button>
+        {active === "prepaid" &&
+          renderOrderSection(
+            "Prepaid Orders",
+            prepaidOrders,
+            "No prepaid orders found."
+          )}
 
-                <button
-                  onClick={() => setDeliveryFilter("ordered")}
-                  className={`px-3 py-1 rounded ${
-                    deliveryFilter === "ordered"
-                      ? "bg-gray-500 text-white"
-                      : "bg-gray-200 text-black"
-                  }`}
-                >
-                  Pending Shipment
-                </button>
-              </div>
-            </div>
+        {active === "pending" &&
+          renderOrderSection(
+            "Pending Shipment Orders",
+            pendingShipmentOrders,
+            "No pending shipments found."
+          )}
 
-            <div className="grid grid-cols-3 gap-3">
-              {filteredPrepaidOrders.map((o) => (
-                <div
-                  key={o.id}
-                  className="bg-white p-4 rounded shadow flex gap-4"
-                >
-                  <img
-                    src={o.product_image}
-                    className="w-16 h-16 object-cover rounded"
-                  />
+        {active === "intransit" &&
+          renderOrderSection(
+            "Intransit Orders",
+            intransitOrders,
+            "No intransit orders found."
+          )}
 
-                  <div className="flex-1">
-                    <p className="font-medium text-black">{o.product_name}</p>
-                    <p className="text-sm text-gray-500">
-                      ₹{o.total} • {o.payment_channel}
-                    </p>
-                  </div>
-
-                  <div className="text-white text-xs bg-amber-500 rounded-2xl px-2 py-1 h-max">
-                    {o.delivery_status}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {filteredPrepaidOrders.length === 0 && (
-              <p className="text-gray-500 mt-6">No pending shipments found.</p>
-            )}
-          </div>
-        )}
+        {active === "delivered" &&
+          renderOrderSection(
+            "Delivered Orders",
+            deliveredOrders,
+            "No delivered orders found."
+          )}
       </div>
     </div>
   );
