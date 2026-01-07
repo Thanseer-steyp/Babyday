@@ -5,7 +5,6 @@ from django.utils.text import slugify
 from django.db.models import Avg, Count,Sum
 
 class ProductSerializer(serializers.ModelSerializer):
-    slug = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     rating_count = serializers.SerializerMethodField()
     available_stock = serializers.SerializerMethodField()
@@ -15,9 +14,6 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
         
-
-    def get_slug(self, obj):
-        return slugify(obj.title)
 
     def get_average_rating(self, obj):
         avg = obj.reviews.aggregate(avg=Avg("rating"))["avg"]

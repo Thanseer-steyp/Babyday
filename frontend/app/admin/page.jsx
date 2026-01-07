@@ -93,6 +93,10 @@ export default function AdminProductsPage() {
   const [loadingUser, setLoadingUser] = useState(true);
   const [copiedOrderId, setCopiedOrderId] = useState(null);
 
+  const authHeader = () => ({
+    Authorization: `Bearer ${localStorage.getItem("access")}`,
+  });
+
   const renderOrderSection = (title, ordersList, emptyMessage) => (
     <div className="p-6">
       <h1 className="text-2xl font-semibold mb-4">{title}</h1>
@@ -133,14 +137,10 @@ export default function AdminProductsPage() {
     }
   };
 
-  const authHeader = {
-    Authorization: `Bearer ${localStorage.getItem("access")}`,
-  };
-
   const loadMe = async () => {
     try {
       const res = await axios.get("http://localhost:8000/api/v1/user/me/", {
-        headers: authHeader,
+        headers: authHeader(),
       });
 
       setMe(res.data);
@@ -159,7 +159,7 @@ export default function AdminProductsPage() {
     try {
       const res = await axios.get(
         "http://localhost:8000/api/v1/manager/products/",
-        { headers: authHeader }
+        { headers: authHeader() }
       );
       setProducts(res.data);
       console.log(res.data);
@@ -171,7 +171,7 @@ export default function AdminProductsPage() {
   const loadOrders = async () => {
     const res = await axios.get(
       "http://localhost:8000/api/v1/manager/all-orders/",
-      { headers: authHeader }
+      { headers: authHeader() }
     );
     setOrders(res.data);
   };
@@ -189,7 +189,7 @@ export default function AdminProductsPage() {
   const loadPrepaidOrders = async () => {
     const res = await axios.get(
       "http://localhost:8000/api/v1/manager/orders/prepaid/paid/",
-      { headers: authHeader }
+      { headers: authHeader() }
     );
     setPrepaidOrders(res.data);
   };
@@ -197,7 +197,7 @@ export default function AdminProductsPage() {
   const loadPendingShipmentOrders = async () => {
     const res = await axios.get(
       "http://localhost:8000/api/v1/manager/orders/pending-shipments/",
-      { headers: authHeader }
+      { headers: authHeader() }
     );
     setPendingShipmentOrders(res.data);
   };
@@ -205,7 +205,7 @@ export default function AdminProductsPage() {
   const loadIntransitOrders = async () => {
     const res = await axios.get(
       "http://localhost:8000/api/v1/manager/orders/intransit/",
-      { headers: authHeader }
+      { headers: authHeader() }
     );
     setIntransitOrders(res.data);
   };
@@ -213,7 +213,7 @@ export default function AdminProductsPage() {
   const loadDeliveredOrders = async () => {
     const res = await axios.get(
       "http://localhost:8000/api/v1/manager/orders/delivered/",
-      { headers: authHeader }
+      { headers: authHeader() }
     );
     setDeliveredOrders(res.data);
   };
@@ -756,8 +756,6 @@ export default function AdminProductsPage() {
             )}
           </div>
         )}
-
-
 
         {active === "orders" &&
           renderOrderSection("All Orders", orders, "No orders found.")}

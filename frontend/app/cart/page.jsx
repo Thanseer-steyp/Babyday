@@ -46,16 +46,12 @@ export default function CartPage() {
       return;
     }
     const items = inStockItems.map((item) => ({
+      product_id:item.product_id,
       slug: item.slug,
       title: item.title,
       image: item.image,
       size: item.size,
       qty: item.quantity,
-      price: item.price,
-      mrp: item.mrp,
-      discount: item.discount,
-      delivery_charge: item.delivery_charge,
-      total: item.total,
       image: item.image1,
     }));
 

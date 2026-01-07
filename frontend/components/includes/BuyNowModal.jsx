@@ -26,16 +26,12 @@ export default function BuyNowModal({
       "checkoutItems",
       JSON.stringify([
         {
+          product_id: product.id,
           slug: product.slug,
           title: product.title,
           image: product.image1,
           size,
           qty,
-          price,
-          mrp,
-          discount,
-          delivery_charge: charge,
-          total,
         },
       ])
     );

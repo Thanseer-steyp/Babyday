@@ -19,10 +19,8 @@ class ProductView(APIView):
 class ProductDetailView(APIView):
 
     def get_object(self, slug):
-        return get_object_or_404(
-            Product,
-            title__iexact=slug.replace("-", " ")
-        )
+        return get_object_or_404(Product, slug=slug)
+
 
     def get(self, request, slug):
         product = self.get_object(slug)

@@ -199,7 +199,6 @@ export default function OrdersPage() {
                     minute: "2-digit",
                   })}
                 </p>
-                <p className="text-xs text-gray-500">Ordered by: {o.user}</p>
               </div>
               <div className="border-t min-h-10 w-full p-4 flex justify-center">
                 <div>

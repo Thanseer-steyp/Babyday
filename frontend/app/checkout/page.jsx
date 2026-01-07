@@ -51,11 +51,46 @@ export default function CheckoutPage() {
   const { clearCart } = useCart();
 
   useEffect(() => {
-    const stored = localStorage.getItem("checkoutItems");
-    if (stored) {
-      setCheckoutItems(JSON.parse(stored));
-    }
+    const loadCheckoutItems = async () => {
+      const stored = localStorage.getItem("checkoutItems");
+      if (!stored) return;
+
+      try {
+        const localItems = JSON.parse(stored);
+
+        const res = await api.get("api/v1/public/products/");
+        const mergedItems = mergeCheckoutWithProducts(localItems, res.data);
+
+        setCheckoutItems(mergedItems);
+      } catch (err) {
+        console.error("Failed to sync checkout items", err);
+      }
+    };
+
+    loadCheckoutItems();
   }, []);
+
+  const mergeCheckoutWithProducts = (checkoutItems, products) => {
+    const productMap = {};
+
+    products.forEach((p) => {
+      productMap[p.slug] = p;
+    });
+
+    return checkoutItems.map((item) => {
+      const product = productMap[item.slug];
+
+      if (!product) return item; // fallback safety
+
+      return {
+        ...item,
+        mrp: product.mrp,
+        price: product.price,
+        delivery_charge: product.delivery_charge,
+        available_stock: product.available_stock,
+      };
+    });
+  };
 
   const router = useRouter();
 
@@ -100,7 +135,7 @@ export default function CheckoutPage() {
         address: address,
       });
 
-      const { order_id, amount, razorpay_key } = orderRes.data;
+      const { razorpay_order_id, amount, razorpay_key } = orderRes.data;
 
       // 2️⃣ Open Razorpay checkout
       const options = {
@@ -108,13 +143,16 @@ export default function CheckoutPage() {
         amount,
         currency: "INR",
         name: "BABYDAY",
-        order_id,
+        order_id: razorpay_order_id,
         handler: async (response) => {
           await api.post("api/v1/user/verify-payment/", {
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
+            items: checkoutItems,
+            address: address,
           });
+
           alert("Payment Successful!");
           localStorage.removeItem("checkoutItems");
           clearCart();
@@ -198,10 +236,11 @@ export default function CheckoutPage() {
     (sum, item) => sum + Number(item.price) * item.qty,
     0
   );
-  const delivery = checkoutItems.reduce(
-    (sum, item) => sum + Number(item.delivery_charge) * item.qty,
-    0
-  );
+  const delivery = checkoutItems.reduce((sum, item) => {
+    const itemTotal = Number(item.price) * item.qty;
+    if (itemTotal > 2000) return sum; // FREE DELIVERY
+    return sum + Number(item.delivery_charge) * item.qty;
+  }, 0);
 
   const total = subtotal + delivery;
   const discount = mrp - subtotal;
@@ -377,8 +416,16 @@ export default function CheckoutPage() {
                 <p className="text-sm">Size: {item.size}</p>
                 <p className="text-sm">Qty: {item.qty}</p>
                 <p className="text-sm">
-                  ₹{Number(item.price).toFixed(0)} +{" "}
-                  {Number(item.delivery_charge).toFixed(0)} Shipping
+                  ₹{Number(item.price).toFixed(0)} +
+                  <span className="ml-1">
+                    {Number(item.price) * item.qty > 2000 ? (
+                      <span className="text-green-600 font-semibold">
+                        Free Delivery
+                      </span>
+                    ) : (
+                      <>₹{Number(item.delivery_charge).toFixed(0)} Shipping</>
+                    )}
+                  </span>
                 </p>
               </div>
             </div>
@@ -401,9 +448,7 @@ export default function CheckoutPage() {
               <span>₹{subtotal}</span>
             </div>
 
-
-              <span className="text-center block text-xl">+</span>
-
+            <span className="text-center block text-xl">+</span>
 
             <div className="flex justify-between">
               <span>Delivery</span>
@@ -448,7 +493,7 @@ function Step({ label, active, done }) {
   );
 }
 
-function CodConfirmModal({ open, onClose, onConfirm,total }) {
+function CodConfirmModal({ open, onClose, onConfirm, total }) {
   if (!open) return null;
 
   return (

@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAdminUser
 
 from public.models import Product
 from user.models import Order
-from .serializers import (PrepaidPaidOrderSerializer,PendingShipmentOrdersSerializer,IntransitOrdersSerializer,DeliveredOrdersSerializer)
+from .serializers import (OrderListSerializer)
 from api.v1.public.serializers import ProductSerializer
 from api.v1.user.serializers import OrderSerializer
 
@@ -34,10 +34,8 @@ class ManageProductDetailView(APIView):
     permission_classes = [IsAdminUser]
 
     def get_object(self, slug):
-        return get_object_or_404(
-            Product,
-            title__iexact=slug.replace('-', ' ')
-        )
+        return get_object_or_404(Product, slug=slug)
+
 
     # READ
     def get(self, request, slug):
@@ -91,7 +89,7 @@ class PrepaidPaidOrderView(APIView):
             payment_status="paid"
         ).order_by("-created_at")
 
-        serializer = PrepaidPaidOrderSerializer(
+        serializer = OrderListSerializer(
             orders, many=True, context={"request": request}
         )
         return Response(serializer.data, status=200)
@@ -102,7 +100,7 @@ class AllOrdersView(APIView):
 
     def get(self, request):
         orders = Order.objects.all().order_by("-created_at")
-        serializer = OrderSerializer(
+        serializer = OrderListSerializer(
             orders,
             many=True,
             context={"request": request}
@@ -118,7 +116,7 @@ class PendingShipmentOrdersView(APIView):
             delivery_status="ordered",
         ).order_by("-created_at")
 
-        serializer = PrepaidPaidOrderSerializer(
+        serializer = OrderListSerializer(
             orders, many=True, context={"request": request}
         )
         return Response(serializer.data, status=200)
@@ -131,7 +129,7 @@ class IntransitOrdersView(APIView):
             delivery_status="shipped",
         ).order_by("-created_at")
 
-        serializer = PrepaidPaidOrderSerializer(
+        serializer = OrderListSerializer(
             orders, many=True, context={"request": request}
         )
         return Response(serializer.data, status=200)
@@ -145,7 +143,7 @@ class DeliveredOrdersView(APIView):
             delivery_status="delivered",
         ).order_by("-created_at")
 
-        serializer = PrepaidPaidOrderSerializer(
+        serializer = OrderListSerializer(
             orders, many=True, context={"request": request}
         )
         return Response(serializer.data, status=200)
