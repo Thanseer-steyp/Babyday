@@ -236,11 +236,20 @@ export default function CheckoutPage() {
     (sum, item) => sum + Number(item.price) * item.qty,
     0
   );
-  const delivery = checkoutItems.reduce((sum, item) => {
-    const itemTotal = Number(item.price) * item.qty;
-    if (itemTotal > 2000) return sum; // FREE DELIVERY
-    return sum + Number(item.delivery_charge) * item.qty;
-  }, 0);
+  const isFreeDelivery = subtotal >= 2000;
+
+  const delivery = isFreeDelivery
+    ? 0
+    : checkoutItems.reduce(
+        (sum, item) => sum + Number(item.delivery_charge) * item.qty,
+        0
+      );
+
+  // const delivery = checkoutItems.reduce((sum, item) => {
+  //   const itemTotal = Number(item.price) * item.qty;
+  //   if (itemTotal > 2000) return sum;
+  //   return sum + Number(item.delivery_charge) * item.qty;
+  // }, 0);
 
   const total = subtotal + delivery;
   const discount = mrp - subtotal;
@@ -417,8 +426,17 @@ export default function CheckoutPage() {
                 <p className="text-sm">Qty: {item.qty}</p>
                 <p className="text-sm">
                   ₹{Number(item.price).toFixed(0)} +
-                  <span className="ml-1">
+                  {/* <span className="ml-1">
                     {Number(item.price) * item.qty > 2000 ? (
+                      <span className="text-green-600 font-semibold">
+                        Free Delivery
+                      </span>
+                    ) : (
+                      <>₹{Number(item.delivery_charge).toFixed(0)} Shipping</>
+                    )}
+                  </span> */}
+                  <span className="ml-1">
+                    {isFreeDelivery ? (
                       <span className="text-green-600 font-semibold">
                         Free Delivery
                       </span>

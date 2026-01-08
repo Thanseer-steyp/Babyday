@@ -1,9 +1,10 @@
+import threading
 from django.core.mail import EmailMessage
 from django.conf import settings
 
 
-from django.core.mail import EmailMessage
-from django.conf import settings
+def _send_email_async(email):
+    email.send(fail_silently=False)
 
 
 def send_admin_order_email(orders):
@@ -85,4 +86,9 @@ This is an automated order alert.
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[settings.ORDER_NOTIFICATION_EMAIL],
     )
-    email.send(fail_silently=False)
+
+    threading.Thread(
+        target=_send_email_async,
+        args=(email,),
+        daemon=True
+    ).start()

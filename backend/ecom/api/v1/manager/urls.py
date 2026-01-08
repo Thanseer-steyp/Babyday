@@ -7,12 +7,20 @@ from .views import (
     PendingShipmentOrdersView,
     IntransitOrdersView,
     DeliveredOrdersView,
-    UpdateDeliveryStatusView
+    UpdateDeliveryStatusView,
+    LowStockProductsView,
+    OutOfStockProductsView,
+    AvailableProductsView,
+    UnAvailableProductsView
 )
 
 urlpatterns = [
     path('products/', ManageProductView.as_view(), name='admin-product-list-create'),
     path('products/<slug:slug>/', ManageProductDetailView.as_view(), name='admin-product-detail'),
+    path("products/filter/out-of-stock/", OutOfStockProductsView.as_view(), name='admin-stockout-products'),
+    path("products/filter/low-stock/", LowStockProductsView.as_view(), name='admin-lowstock-products'),
+    path("products/filter/available/", AvailableProductsView.as_view(), name='admin-available-products'),
+    path("products/filter/unavailable/", UnAvailableProductsView.as_view(), name='admin-unavailable-products'),
     path("all-orders/",AllOrdersView.as_view(),name="manager-all-orders"),
     path("orders/prepaid/paid/",PrepaidPaidOrderView.as_view(),name="prepaid-paid-orders"),
     path("orders/pending-shipments/",PendingShipmentOrdersView.as_view(),name="pending-shipment-orders"),

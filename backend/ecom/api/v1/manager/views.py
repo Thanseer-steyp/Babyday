@@ -1,10 +1,9 @@
 from django.shortcuts import get_object_or_404
-from django.utils.text import slugify
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAdminUser
-
+from django.db.models import Q
 from public.models import Product
 from user.models import Order
 from .serializers import (OrderListSerializer)
@@ -17,7 +16,13 @@ class ManageProductView(APIView):
 
     # LIST
     def get(self, request):
+        q = request.query_params.get("q")  # ?q=shirt
         products = Product.objects.all().order_by('-created_at')
+        
+        if q:
+            products = products.filter(
+                Q(title__icontains=q) | Q(price__icontains=q)
+            )
         serializer = ProductSerializer(products, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -99,7 +104,26 @@ class AllOrdersView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
+        q = request.query_params.get("q")  # search by product name or order id
         orders = Order.objects.all().order_by("-created_at")
+
+        if q:
+            orders = orders.filter(
+                Q(product_name__icontains=q) |
+                Q(id__icontains=q) |
+                Q(delivery_status__icontains=q) |
+                Q(payment_status__icontains=q)|
+                Q(product_slug__icontains=q)|
+                Q(delivery_partner__icontains=q)|
+                Q(tracking_code__icontains=q)|
+                Q(payment_method__icontains=q)|
+                Q(pincode__icontains=q)|
+                Q(user__username__icontains=q) |
+                Q(name__icontains=q) |
+                Q(phone__icontains=q) |
+                Q(total__icontains=q) |
+                Q(created_at__icontains=q) 
+            )
         serializer = OrderListSerializer(
             orders,
             many=True,
@@ -193,3 +217,56 @@ class UpdateDeliveryStatusView(APIView):
             },
             status=200
         )
+
+
+
+
+class OutOfStockProductsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        products = Product.objects.all()
+        serializer = ProductSerializer(
+            products, many=True, context={"request": request}
+        )
+        data = [p for p in serializer.data if p["available_stock"] == 0]
+        return Response(data, status=status.HTTP_200_OK)
+
+
+
+class LowStockProductsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        products = Product.objects.all()
+
+        serializer = ProductSerializer(
+            products, many=True, context={"request": request}
+        )
+        data = [
+            p for p in serializer.data
+            if 0 < p["available_stock"] <= 5
+        ]
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class AvailableProductsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    # LIST
+    def get(self, request):
+        products = Product.objects.filter(is_available=True)
+
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class UnAvailableProductsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    # LIST
+    def get(self, request):
+        products = Product.objects.filter(is_available=False)
+
+        serializer = ProductSerializer(products, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

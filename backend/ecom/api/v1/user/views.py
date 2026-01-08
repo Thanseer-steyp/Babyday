@@ -1,4 +1,3 @@
-from django.utils.text import slugify
 from django.conf import settings
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -27,9 +26,26 @@ class CreateOrderView(APIView):
 
         calculated_items = [] 
         grand_total = 0
-        
+
+
+
+        #rem free delivery
+        #-------------------------------------------------
+        subtotal = 0  
+
         for item in items:
-            product = Product.objects.get(title__iexact=item["title"])
+            product = Product.objects.get(slug=item["slug"])
+            qty = int(item["qty"])
+            subtotal += float(product.price) * qty
+
+        # 2️⃣ CART LEVEL FREE DELIVERY
+        is_free_delivery = subtotal >= 2000
+        
+        #-------------------------------------------------
+
+
+        for item in items:
+            product = Product.objects.get(slug=item["slug"])
 
             qty = int(item["qty"])
             size = item.get("size", "")
@@ -45,8 +61,19 @@ class CreateOrderView(APIView):
                     status=400
                 )
             
-            if price * qty > 2000:
+        
+            #-------------------------------------------------
+             # ✅ APPLY FREE DELIVERY
+            if is_free_delivery:
                 delivery = 0
+            #-------------------------------------------------
+
+
+
+
+            
+            #if price * qty > 2000:
+                #delivery = 0
 
             item_mrp = mrp * qty
             item_discount = (mrp - price) * qty
@@ -55,9 +82,10 @@ class CreateOrderView(APIView):
             item_total = (price * qty) + item_delivery_charge
 
             sold_qty = Order.objects.filter(
-                product_name=product.title,
-                payment_status="paid"
+                product_slug=product.slug,
+                payment_status__in=["paid", "initiated"]
             ).aggregate(total=Sum("qty"))["total"] or 0
+
 
             if product.stock_qty - sold_qty < qty:
                 return Response(
@@ -168,6 +196,17 @@ class VerifyPaymentView(APIView):
             payment_channel = payment.get("method")
 
             orders = []
+
+
+
+            #-----------------------------------------------------
+            subtotal = 0  # ✅ NEW
+            for item in data["items"]:
+                product = Product.objects.get(slug=item["slug"])
+                subtotal += float(product.price) * int(item["qty"])
+
+            is_free_delivery = subtotal >= 2000
+            #--------------------------------------------------------------
             
 
             with transaction.atomic():
@@ -183,14 +222,18 @@ class VerifyPaymentView(APIView):
                     mrp = float(product.mrp)
                     delivery = float(product.delivery_charge or 0)
 
-                    # Free delivery rule
-                    if price * qty > 2000:
+
+                    if is_free_delivery:
                         delivery = 0
+                        
+                    # Free delivery rule
+                    #if price * qty > 2000:
+                        #delivery = 0
 
                     sold_qty = Order.objects.filter(
-                            product_name=product.title,
-                            payment_status="paid"
-                        ).aggregate(total=Sum("qty"))["total"] or 0
+                        product_slug=product.slug,
+                        payment_status__in=["paid", "initiated"]
+                    ).aggregate(total=Sum("qty"))["total"] or 0
 
                     if product.stock_qty - sold_qty < qty:
                         raise ValueError(f"Stock exhausted for {product.title}")
@@ -294,11 +337,11 @@ class AddToCartView(APIView):
         size = request.data.get("size")  # get selected size
         
 
-        product = None
-        for p in Product.objects.filter(is_available=True):
-            if slugify(p.title) == slug:
-                product = p
-                break
+        product = Product.objects.filter(
+            slug=slug,
+            is_available=True
+        ).first()
+
 
         if not product:
             return Response({"detail": "Product not found"}, status=404)
@@ -332,11 +375,8 @@ class RemoveFromCartView(APIView):
         if not size:
             return Response({"detail": "Size required"}, status=400)
 
-        product = None
-        for p in Product.objects.all():
-            if slugify(p.title) == slug:
-                product = p
-                break
+        product = Product.objects.filter(slug=slug).first()
+
 
         if not product:
             return Response({"detail": "Product not found"}, status=404)
@@ -377,12 +417,11 @@ class UpdateCartQtyView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # find product by slug
-        product = None
-        for p in Product.objects.filter(is_available=True):
-            if slugify(p.title) == slug:
-                product = p
-                break
+        product = Product.objects.filter(
+            slug=slug,
+            is_available=True
+        ).first()
+
 
         if not product:
             return Response({"detail": "Product not found"}, status=404)
@@ -398,8 +437,9 @@ class UpdateCartQtyView(APIView):
                 {"detail": "Item not in cart"},
                 status=404
             )
+
         sold_qty = Order.objects.filter(
-            product_name=product.title,
+            product_slug=product.slug,
             payment_status__in=["paid", "initiated"]
         ).aggregate(total=Sum("qty"))["total"] or 0
 
@@ -434,12 +474,9 @@ class AddToWishlistView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, slug):
-        # Look for product manually instead of get_object_or_404
-        product = None
-        for p in Product.objects.all():
-            if slugify(p.title) == slug:
-                product = p
-                break
+        
+        product = Product.objects.filter(slug=slug).first()
+
 
         if not product:
             return Response({"message": "Product not found"}, status=400)
@@ -454,11 +491,8 @@ class RemoveFromWishlistView(APIView):
 
     def delete(self, request, slug):
         # Look for product manually
-        product = None
-        for p in Product.objects.all():
-            if slugify(p.title) == slug:
-                product = p
-                break
+        product = Product.objects.filter(slug=slug).first()
+
 
         if not product:
             return Response({"message": "Product not found"}, status=400)
@@ -515,8 +549,8 @@ class CreateRatingView(APIView):
                 status=403
             )
 
-        # ✅ SAFE & CORRECT
-        product = Product.objects.get(title=order.product_name)
+        product = Product.objects.get(slug=order.product_slug)
+
 
         ProductRating.objects.create(
             product=product,
