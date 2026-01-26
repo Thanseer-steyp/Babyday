@@ -1,19 +1,51 @@
 from rest_framework import serializers
-from public.models import Product
-from user.models import Order
-from django.utils.text import slugify
-from django.db.models import Avg, Count,Sum
+from public.models import Product, ProductVariant
+from django.db.models import Avg, Sum
+
+
+class ProductVariantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductVariant
+        fields = (
+            "id",
+            "size",
+            "price",
+            "stock_qty",
+            "is_active",
+        )
+
 
 class ProductSerializer(serializers.ModelSerializer):
     average_rating = serializers.SerializerMethodField()
     rating_count = serializers.SerializerMethodField()
-    available_stock = serializers.SerializerMethodField()
+    variants = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
 
-    
     class Meta:
         model = Product
-        fields = '__all__'
-        
+        fields = (
+            "id",
+            "title",
+            "slug",
+            "age_category",
+            "product_category",
+            "mrp",
+            "price",
+            "delivery_charge",
+            "material_type",
+            "fit_type",
+            "pattern_design",
+            "age_limits",
+            "image1",
+            "image2",
+            "image3",
+            "image4",
+            "is_available",
+            "average_rating",
+            "rating_count",
+            "variants",
+            "created_at",
+        )
 
     def get_average_rating(self, obj):
         avg = obj.reviews.aggregate(avg=Avg("rating"))["avg"]
@@ -22,12 +54,20 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_rating_count(self, obj):
         return obj.reviews.count()
 
-    def get_available_stock(self, obj):
-        sold_qty = Order.objects.filter(
-            product_name=obj.title,
-            payment_status__in=["paid", "initiated"]
-        ).aggregate(total=Sum("qty"))["total"] or 0
+    def get_variants(self, obj):
+        variants = obj.variants.filter(is_active=True)
+        return ProductVariantSerializer(variants, many=True).data
 
-        return obj.stock_qty - sold_qty
-    
+    def get_price(self, obj):
+        prices = []
+
+        for variant in obj.variants.filter(is_active=True):
+            if variant.price is not None:
+                prices.append(variant.price)
+            elif obj.common_price is not None:
+                prices.append(obj.common_price)
+
+        return min(prices) if prices else None
+
+
 

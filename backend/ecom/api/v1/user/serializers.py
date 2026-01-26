@@ -14,10 +14,11 @@ class AddressSerializer(serializers.ModelSerializer):
 
 class CartSerializer(serializers.ModelSerializer):
     title = serializers.CharField(source="product.title", read_only=True)
-    price = serializers.DecimalField(source="product.price", max_digits=10, decimal_places=2, read_only=True)
+    size = serializers.CharField(source="variant.size", read_only=True)
+    price = serializers.DecimalField(source="variant.price", max_digits=10, decimal_places=2, read_only=True)
     image1 = serializers.ImageField(source="product.image1", read_only=True)
-    slug = serializers.SerializerMethodField()
-    available_stock = serializers.SerializerMethodField() 
+    slug = serializers.CharField(source="product.slug", read_only=True)
+    stock = serializers.IntegerField(source="variant.stock_qty", read_only=True)
     mrp = serializers.DecimalField(source="product.mrp",max_digits=10,decimal_places=2)
     delivery_charge = serializers.DecimalField(source="product.delivery_charge",max_digits=10,decimal_places=2)
 
@@ -34,19 +35,8 @@ class CartSerializer(serializers.ModelSerializer):
             "slug",
             "quantity",
             "size",
-            'available_stock'
+            'stock'
         ]
-
-    def get_slug(self, obj):
-        return slugify(obj.product.title)
-
-    def get_available_stock(self, obj):
-        sold_qty = Order.objects.filter(
-            product_name=obj.product.title,
-            payment_status__in=["paid", "initiated"]
-        ).aggregate(total=Sum("qty"))["total"] or 0
-
-        return obj.product.stock_qty - sold_qty
 
 
 

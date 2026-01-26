@@ -5,6 +5,7 @@ from django.urls import path
 #     SignupOTPResendView)
 
 from api.v1.register.views import EmailAuthView
+from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
 
 urlpatterns = [
     # path('signup-request/', SignupRequestView.as_view(), name='signup-request'),  # 🔹 add this
@@ -16,5 +17,9 @@ urlpatterns = [
     # path('password-reset-otp/', PasswordResetOTPRequestView.as_view(), name='password-reset-otp'),
     # path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
 
-    path('auth/', EmailAuthView.as_view(), name='email-auth')
+    path('auth/', EmailAuthView.as_view(), name='email-auth'),
+
+    path("token/",TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("token/refresh",TokenRefreshView.as_view(), name="token_refresh"),
+
 ]

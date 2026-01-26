@@ -334,36 +334,58 @@ class AddToCartView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, slug):
-        size = request.data.get("size")  # get selected size
-        
+        size = request.data.get("size")
 
-        product = Product.objects.filter(
-            slug=slug,
-            is_available=True
-        ).first()
-
-
-        if not product:
-            return Response({"detail": "Product not found"}, status=404)
-
-        if product.available_sizes and not size:
+        if not size:
             return Response(
-                {"message": "Please select a size"},
+                {"detail": "Size is required"},
                 status=400
             )
 
+        product = get_object_or_404(
+            Product,
+            slug=slug,
+            is_available=True
+        )
+
+        variant = ProductVariant.objects.filter(
+            product=product,
+            size=size,
+            is_active=True
+        ).first()
+
+        if not variant:
+            return Response(
+                {"detail": "Invalid or unavailable size"},
+                status=400
+            )
+
+        if variant.stock_qty < 1:
+            return Response(
+                {"detail": "Out of stock"},
+                status=400
+            )
 
         cart_item, created = Cart.objects.get_or_create(
             user=request.user,
-            product=product,
-            size=size  # store size
+            variant=variant,
+            defaults={"product": product}
         )
 
         if not created:
+            if cart_item.quantity >= variant.stock_qty:
+                return Response(
+                    {"detail": "Stock limit reached"},
+                    status=400
+                )
             cart_item.quantity += 1
             cart_item.save()
 
-        return Response({"message": "Added to cart"}, status=200)
+        return Response(
+            {"message": "Added to cart"},
+            status=200
+        )
+
 
 
 
@@ -402,71 +424,32 @@ class UpdateCartQtyView(APIView):
         action = request.data.get("action")
         size = request.data.get("size")
 
+        product = get_object_or_404(Product, slug=slug)
+        variant = get_object_or_404(ProductVariant, product=product, size=size)
 
-        if not size:
-            return Response(
-                {"detail": "Size is required"},
-                status=400
-            )
-
-         # "increase" or "decrease"
-
-        if action not in ["increase", "decrease"]:
-            return Response(
-                {"detail": "Invalid action"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        product = Product.objects.filter(
-            slug=slug,
-            is_available=True
-        ).first()
-
-
-        if not product:
-            return Response({"detail": "Product not found"}, status=404)
-
-        cart_item = Cart.objects.filter(
+        cart_item = get_object_or_404(
+            Cart,
             user=request.user,
-            product=product,
-            size=size
-        ).first() 
+            variant=variant
+        )
 
-        if not cart_item:
-            return Response(
-                {"detail": "Item not in cart"},
-                status=404
-            )
-
-        sold_qty = Order.objects.filter(
-            product_slug=product.slug,
-            payment_status__in=["paid", "initiated"]
-        ).aggregate(total=Sum("qty"))["total"] or 0
-
-        available_stock = product.stock_qty - sold_qty
-        # quantity logic (min=1, max=3)
         if action == "increase":
-            if cart_item.quantity < available_stock:
-                cart_item.quantity += 1
-            else : 
+            if cart_item.quantity >= variant.stock_qty:
                 return Response(
-                    {"detail": f"Only {available_stock} items available"},
+                    {"detail": "Stock limit reached"},
                     status=400
                 )
+            cart_item.quantity += 1
 
         elif action == "decrease" and cart_item.quantity > 1:
             cart_item.quantity -= 1
 
         cart_item.save()
 
-        return Response(
-            {
-                "message": "Quantity updated",
-                "qty": cart_item.quantity,
-                "available_stock": available_stock
-            },
-            status=200
-        )
+        return Response({
+            "qty": cart_item.quantity,
+            "available_stock": variant.stock_qty
+        })
 
 
 

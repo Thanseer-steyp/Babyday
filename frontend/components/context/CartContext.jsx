@@ -44,10 +44,17 @@ export const CartProvider = ({ children }) => {
   const addToCart = async (slug, size, authToken = token) => {
     if (!authToken) return;
 
-    await api.post(`api/v1/user/cart/add/${slug}/`, { size });
+    await axios.post(
+      `http://localhost:8000/api/v1/user/cart/add/${slug}/`,
+      { size },
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      },
+    );
 
     fetchCart(authToken);
-    alert("Added to cart");
   };
 
   // Remove from cart
@@ -61,7 +68,7 @@ export const CartProvider = ({ children }) => {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     fetchCart(token);
@@ -81,7 +88,7 @@ export const CartProvider = ({ children }) => {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     fetchCart(token);
