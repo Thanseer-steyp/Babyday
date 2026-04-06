@@ -1,10 +1,11 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.core.exceptions import ValidationError
-from .models import Product, ProductVariant
+from .models import Product, ProductVariant,ProductCategory,ProductMedia
 from django.forms.models import BaseInlineFormSet
 from django.core.exceptions import ValidationError
 
+admin.site.register(ProductCategory)
 
 class ProductVariantInlineFormSet(BaseInlineFormSet):
     def clean(self):
@@ -34,12 +35,32 @@ class ProductVariantInlineFormSet(BaseInlineFormSet):
                 "At least one product variant is required."
             )
 
-        # 🔴 common_price OR ALL variants must have price
-        if product.common_price is None and variants_missing_price:
+        # 🔴 price OR ALL variants must have price
+        if product.price is None and variants_missing_price:
             raise ValidationError(
-                "Set a Common Price or provide a price for ALL variants."
+                "Set Product Price or provide a price for ALL variants."
             )
+class ProductImageInlineFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
 
+        valid_images = 0
+
+        for form in self.forms:
+            if not form.cleaned_data:
+                continue
+            if form.cleaned_data.get("DELETE"):
+                continue
+
+            valid_images += 1
+
+        if valid_images < 1:
+            raise ValidationError("At least one product image is required.")
+
+class ProductMediaInline(admin.TabularInline):
+    model = ProductMedia
+    extra = 0
+    formset = ProductImageInlineFormSet
 
 class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
@@ -49,7 +70,7 @@ class ProductVariantInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    inlines = [ProductVariantInline]
+    inlines = [ProductVariantInline, ProductMediaInline]
     list_display = (
         "id",
         "title",
@@ -72,18 +93,17 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ("title", "slug")
 
     def product_image(self, obj):
-        if obj.image1:
+        main_media = obj.media.filter(is_main=True).first()
+
+        if main_media and main_media.media:
             return format_html(
-                '<img src="{}" width="60" height="60" '
-                'style="object-fit:cover; border-radius:4px;" />',
-                obj.image1.url
+                '<img src="{}" width="60" height="60" style="object-fit:cover;" />',
+                main_media.media.url
             )
         return "—"
 
-    product_image.short_description = "Image"
-
     def variant_sizes(self, obj):
-        sizes = obj.variants.filter(is_active=True).values_list("size", flat=True)
+        sizes = obj.variants.filter(is_available=True).values_list("size", flat=True)
         return ", ".join(sizes) if sizes else "—"
 
     variant_sizes.short_description = "Sizes"
@@ -93,8 +113,16 @@ class ProductAdmin(admin.ModelAdmin):
 
         product = form.instance
 
-        if product.common_price is not None:
+        # ✅ Apply common price
+        if product.price is not None:
             product.variants.filter(price__isnull=True).update(
-                price=product.common_price
+                price=product.price
             )
 
+        # ✅ Apply common MRP (NEW 🔥)
+        if product.mrp is not None:
+            product.variants.filter(mrp__isnull=True).update(
+                mrp=product.mrp
+            )
+
+        product.update_lowest_variant_prices()

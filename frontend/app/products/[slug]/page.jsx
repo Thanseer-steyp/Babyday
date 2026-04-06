@@ -7,6 +7,7 @@ import { useCart } from "@/components/context/CartContext";
 import { useWishlist } from "@/components/context/WishlistContext";
 import AuthModal from "../../../components/includes/AuthModal";
 import BuyNowModal from "../../../components/includes/BuyNowModal";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
@@ -14,10 +15,10 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [currentImage, setCurrentImage] = useState(0);
 
   const [selectedSize, setSelectedSize] = useState("");
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
+
   const [showAuth, setShowAuth] = useState(false);
   const [showBuyNow, setShowBuyNow] = useState(false);
 
@@ -25,62 +26,73 @@ export default function ProductDetailPage() {
   const { wishlistItems, addToWishlist } = useWishlist();
 
   const inWishlist = wishlistItems.some((item) => item.slug === slug);
-  const inCart = cartItems.some((item) => item.slug === slug);
 
-  const AGE_CATEGORY_LABELS = {
-    kids_boy: "Kids (Boy)",
-    kids_girl: "Kids (Girl)",
-    kids_unisex: "Kids (Unisex)",
-    adults_men: "Adults (Men)",
-    adults_women: "Adults (Women)",
-    adults_unisex: "Adults (Unisex)",
-    all_age_men: "All Age (Men)",
-    all_age_women: "All Age (Women)",
-    all_age_unisex: "All Age (Unisex)",
-  };
-
-  /* ---------------- FETCH PRODUCT ---------------- */
+  /* ---------------- FETCH ---------------- */
   useEffect(() => {
     const fetchProduct = async () => {
-      try {
-        const res = await axios.get(
-          `http://localhost:8000/api/v1/public/products/${slug}/`,
-        );
-        setProduct(res.data);
-      } catch {
-        setError("Product not found");
-      } finally {
-        setLoading(false);
-      }
+      const res = await axios.get(
+        `http://localhost:8000/api/v1/public/products/${slug}/`,
+      );
+
+      setProduct(res.data);
+      setLoading(false);
     };
 
     fetchProduct();
   }, [slug]);
 
-  /* ---------------- VARIANT DERIVED DATA ---------------- */
+  /* ---------------- VARIANTS ---------------- */
   const variants = useMemo(() => product?.variants || [], [product]);
 
-  const cheapestVariant = useMemo(() => {
-    if (!variants.length) return null;
-    return [...variants].sort((a, b) => Number(a.price) - Number(b.price))[0];
+  const selectedVariant = variants.find((v) => v.id === selectedVariantId);
+
+  const isVariantSelected = !!selectedVariantId;
+
+  // auto select size
+  useEffect(() => {
+    if (!selectedSize && variants.length) {
+      setSelectedSize(variants[0].size);
+    }
   }, [variants]);
 
-  // Auto-select cheapest size
-  useEffect(() => {
-    if (cheapestVariant && !selectedSize) {
-      setSelectedSize(cheapestVariant.size);
-    }
-  }, [cheapestVariant, selectedSize]);
+  /* ---------------- GROUPED VARIANTS ---------------- */
 
-  const selectedVariant = variants.find((v) => v.size === selectedSize);
+  // Group variants by size → { S: [v1], M: [v2, v4], L: [v3, v5] }
+  const sizeGroups = useMemo(() => {
+    return variants.reduce((acc, v) => {
+      if (!acc[v.size]) acc[v.size] = [];
+      acc[v.size].push(v);
+      return acc;
+    }, {});
+  }, [variants]);
 
-  const displayPrice = selectedVariant
-    ? Number(selectedVariant.price)
-    : Number(product?.price || 0);
+  // Unique sizes in order, no duplicates
+  const uniqueSizes = useMemo(
+    () => [...new Set(variants.map((v) => v.size))],
+    [variants],
+  );
+
+  // Variants belonging to the currently selected size
+  const sizeVariants = useMemo(() => {
+    if (!selectedSize) return [];
+    return sizeGroups[selectedSize] || [];
+  }, [selectedSize, sizeGroups]);
+
+  /* ---------------- PRICE / STOCK ---------------- */
+
+  const displayPrice = selectedVariant ? Number(selectedVariant.price) : null;
 
   const totalStock = variants.reduce((sum, v) => sum + v.stock_qty, 0);
 
-  /* ---------------- DELIVERY DATE ---------------- */
+  /* ---------------- PRODUCT MEDIA (LEFT ONLY) ---------------- */
+  const mainMedia = selectedVariant?.image
+    ? selectedVariant.image
+    : product?.media?.find((m) => m.is_main)?.media ||
+      product?.media?.[0]?.media;
+
+  const isVideo = mainMedia?.endsWith(".mp4");
+
+  /* ---------------- DELIVERY ---------------- */
   const getEstimatedDelivery = () => {
     const today = new Date();
     const start = new Date(today);
@@ -97,7 +109,7 @@ export default function ProductDetailPage() {
     return `${format(start)} - ${format(end)}`;
   };
 
-  if (loading) {
+  if (loading || !product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         Loading product...
@@ -105,31 +117,11 @@ export default function ProductDetailPage() {
     );
   }
 
-  if (error || !product) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-red-600">
-        {error}
-      </div>
-    );
-  }
-
-  /* ---------------- IMAGES ---------------- */
-  const productImages = [
-    product.image1,
-    product.image2,
-    product.image3,
-    product.image4,
-  ].filter(Boolean);
-
-  const nextImage = () =>
-    setCurrentImage((i) => (i + 1) % productImages.length);
-  const prevImage = () =>
-    setCurrentImage(
-      (i) => (i - 1 + productImages.length) % productImages.length,
-    );
-
   return (
     <div className="min-h-screen bg-gray-100 p-6 text-black">
+      <Toaster position="top-center" toastOptions={{
+    duration: 1500, // default for all
+  }}/>
       <button
         onClick={() => router.back()}
         className="mb-4 px-4 py-2 bg-gray-200 rounded"
@@ -138,84 +130,110 @@ export default function ProductDetailPage() {
       </button>
 
       <div className="bg-white rounded-xl shadow p-6 flex flex-col md:flex-row gap-6">
-        {/* IMAGE CAROUSEL */}
-        <div className="w-full md:w-1/2 relative">
-          <img
-            src={productImages[currentImage]}
-            className="w-full h-[400px] object-cover rounded-lg"
-            alt={product.title}
-          />
-          <button
-            onClick={prevImage}
-            className="absolute left-2 top-1/2 bg-gray-200 p-2 rounded-full"
-          >
-            ←
-          </button>
-          <button
-            onClick={nextImage}
-            className="absolute right-2 top-1/2 bg-gray-200 p-2 rounded-full"
-          >
-            →
-          </button>
+        {/* 🔥 LEFT → PRODUCT IMAGE ONLY */}
+        <div className="w-full md:w-1/2">
+          {isVideo ? (
+            <video
+              src={mainMedia}
+              controls
+              className="w-full h-[400px] object-cover rounded-lg"
+            />
+          ) : (
+            <img
+              src={mainMedia}
+              className="w-full h-[400px] object-cover rounded-lg"
+              alt={product.title}
+            />
+          )}
         </div>
 
-        {/* PRODUCT INFO */}
-        <div className="flex-1 space-y-3">
+        {/* 🔥 RIGHT SIDE */}
+        <div className="flex-1 space-y-4">
           <h1 className="text-3xl font-bold">{product.title}</h1>
 
-          <p className="text-gray-700">
-            {AGE_CATEGORY_LABELS[product.age_category]}
-          </p>
+          {/* 🔥 VARIANT IMAGE TILES — filtered by selected size */}
+          <div className="flex gap-2 flex-wrap">
+            {sizeVariants.map((v) =>
+              v.image ? (
+                <img
+                  key={v.id}
+                  src={v.image}
+                  onClick={() => {
+                    setSelectedVariantId(v.id);
+                    setSelectedSize(v.size);
+                  }}
+                  className={`h-16 w-16 object-cover rounded cursor-pointer border ${
+                    selectedVariantId === v.id
+                      ? "border-black"
+                      : "border-gray-300"
+                  }`}
+                />
+              ) : null,
+            )}
+          </div>
 
-          <p>
-            <span className="text-xl font-bold text-green-600">
-              ₹ {displayPrice}
-            </span>
-            <span className="line-through ml-2 text-gray-400">
-              ₹ {product.mrp}
-            </span>
-          </p>
+          {/* 🔥 SIZE BUTTONS — unique sizes, no duplicates */}
+          <div className="flex gap-2 flex-wrap">
+            {uniqueSizes.map((size) => {
+              const groupVariants = sizeGroups[size] || [];
+              const isOutOfStock = groupVariants.every(
+                (v) => v.stock_qty === 0,
+              );
+              const isSelected = selectedSize === size;
+              return (
+                <button
+                  key={size}
+                  disabled={isOutOfStock}
+                  onClick={() => {
+                    setSelectedSize(size);
+                    setSelectedVariantId(null); // 🔥 reset image selection
+                  }}
+                  className={`px-3 py-1 border rounded ${
+                    isSelected ? "bg-green-600 text-white" : "bg-gray-200"
+                  }`}
+                >
+                  {size}
+                </button>
+              );
+            })}
+          </div>
 
+          {/* 🔥 PRICE */}
+          {displayPrice ? (
+            <p>
+              <span className="text-xl font-bold text-green-600">
+                ₹ {displayPrice}
+              </span>
+              <span className="line-through ml-2 text-gray-400">
+                ₹ {product.mrp}
+              </span>
+            </p>
+          ) : (
+            <p className="text-gray-500 italic">
+              Select a variant to view price
+            </p>
+          )}
+
+          {/* STOCK */}
           {selectedVariant?.stock_qty <= 5 &&
             selectedVariant?.stock_qty > 0 && (
-              <p className="text-red-600 font-semibold">
+              <p className="text-red-600">
                 Only {selectedVariant.stock_qty} left!
               </p>
             )}
 
-          {/* SIZE SELECTOR */}
-          <div className="flex gap-2 flex-wrap">
-            {variants.map((v) => (
-              <button
-                key={v.size}
-                disabled={v.stock_qty === 0}
-                onClick={() => setSelectedSize(v.size)}
-                className={`px-3 py-1 border rounded ${
-                  selectedSize === v.size
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-200"
-                } ${v.stock_qty === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                {v.size}
-              </button>
-            ))}
-          </div>
-
-          {/* ACTION BUTTONS */}
+          {/* ACTIONS */}
           {totalStock > 0 ? (
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => {
-                  if (!selectedSize) {
-                    alert("Please select a size");
+                  if (!selectedSize) return alert("Select size");
+                  if (!selectedVariantId) {
+                    toast.error("Please select a variant first");
                     return;
                   }
 
-                  if (!token) {
-                    setShowAuth(true);
-                    return;
-                  }
-
+                  if (!token) return setShowAuth(true);
                   addToCart(slug, selectedSize);
                 }}
                 className="px-6 py-3 bg-green-600 text-white rounded"
@@ -224,7 +242,15 @@ export default function ProductDetailPage() {
               </button>
 
               <button
-                onClick={() => setShowBuyNow(true)}
+                onClick={() => {
+                  
+                  if (!selectedVariantId) {
+                    toast.error("Please select a variant first");
+                    return;
+                  }else {
+                    setShowBuyNow(true);
+                  }
+                }}
                 className="px-6 py-3 bg-black text-white rounded"
               >
                 Buy Now
@@ -251,6 +277,7 @@ export default function ProductDetailPage() {
             </button>
           )}
 
+          {/* DELIVERY */}
           <div className="mt-4 bg-gray-100 p-3 rounded flex justify-between">
             <span>Estimated Delivery</span>
             <strong>{getEstimatedDelivery()}</strong>
