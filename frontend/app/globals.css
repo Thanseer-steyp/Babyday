@@ -396,3 +396,16 @@ input::-webkit-inner-spin-button {
 .input {
   @apply w-full border rounded px-3 py-2 text-black;
 }
+
+
+.swiper-button-prev,
+.swiper-button-next {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .swiper-button-prev,
+  .swiper-button-next {
+    display: flex;
+  }
+}
