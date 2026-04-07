@@ -539,7 +539,7 @@ export default function ProductDetailPage() {
   /* ---------------- PRODUCT MEDIA ---------------- */
   const mainMedia = selectedVariant?.image
     ? selectedVariant.image
-    : product?.media?.find((m) => m.is_main)?.media ||
+    : product?.main_media ||
       product?.media?.[0]?.media;
 
   const isVideo = mainMedia?.endsWith(".mp4");

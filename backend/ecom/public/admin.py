@@ -4,8 +4,21 @@ from django.core.exceptions import ValidationError
 from .models import Product, ProductVariant,ProductCategory,ProductMedia
 from django.forms.models import BaseInlineFormSet
 from django.core.exceptions import ValidationError
+from django.utils.html import format_html
 
-admin.site.register(ProductCategory)
+
+@admin.register(ProductCategory)
+class ProductCategoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "category_image")
+    list_display_links = ("name",)
+
+    def category_image(self, obj):
+        if obj.image:
+            return format_html(
+                '<img src="{}" width="50" height="50" style="object-fit:cover;" />',
+                obj.image.url
+            )
+        return "—"
 
 class ProductVariantInlineFormSet(BaseInlineFormSet):
     def clean(self):

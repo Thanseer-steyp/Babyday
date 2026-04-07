@@ -1,9 +1,24 @@
 from rest_framework import serializers
 from django.db.models import Avg
-from public.models import Product, ProductVariant, ProductMedia
+from public.models import Product, ProductVariant, ProductMedia, ProductCategory
 
 
-# ✅ Product Variant Serializer
+class ProductCategorySerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductCategory
+        fields = ("id", "name","slug", "image")
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+
+        if obj.image:
+            return request.build_absolute_uri(obj.image.url) if request else obj.image.url
+
+        return None
+
+
 class ProductVariantSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
 
@@ -29,7 +44,6 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         return None
 
 
-# ✅ Product Media Serializer (image/video)
 class ProductMediaSerializer(serializers.ModelSerializer):
     media = serializers.SerializerMethodField()
 
@@ -50,13 +64,17 @@ class ProductMediaSerializer(serializers.ModelSerializer):
         return None
 
 
-# ✅ Main Product Serializer
 class ProductSerializer(serializers.ModelSerializer):
     average_rating = serializers.SerializerMethodField()
     rating_count = serializers.SerializerMethodField()
     variants = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
     media = serializers.SerializerMethodField()
+    main_media = serializers.SerializerMethodField()  
+    product_category = serializers.CharField(
+        source="product_category.slug",
+        read_only=True
+    )
 
     class Meta:
         model = Product
@@ -68,6 +86,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "product_category",
             "mrp",
             "price",
+            'main_media',
             "lowest_variant_price",
             "lowest_variant_mrp",
             "delivery_charge",
@@ -83,7 +102,6 @@ class ProductSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
-    # ✅ Ratings
     def get_average_rating(self, obj):
         avg = obj.reviews.aggregate(avg=Avg("rating"))["avg"]
         return round(avg, 1) if avg else 0
@@ -91,7 +109,6 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_rating_count(self, obj):
         return obj.reviews.count()
 
-    # ✅ Variants (only available ones)
     def get_variants(self, obj):
         variants = obj.variants.filter(is_available=True)
         return ProductVariantSerializer(
@@ -100,7 +117,6 @@ class ProductSerializer(serializers.ModelSerializer):
             context=self.context  # ✅ IMPORTANT
         ).data
 
-    # ✅ Price logic (optimized)
     def get_price(self, obj):
         variants = obj.variants.filter(is_available=True, price__isnull=False)
 
@@ -109,11 +125,20 @@ class ProductSerializer(serializers.ModelSerializer):
 
         return obj.price
 
-    # ✅ Media (main first)
     def get_media(self, obj):
         media = obj.media.all().order_by("-is_main")
         return ProductMediaSerializer(
             media,
             many=True,
-            context=self.context  # ✅ IMPORTANT
+            context=self.context 
         ).data
+
+    def get_main_media(self, obj):
+        request = self.context.get("request")
+
+        main = obj.media.filter(is_main=True).first() or obj.media.first()
+
+        if main and main.media:
+            return request.build_absolute_uri(main.media.url) if request else main.media.url
+
+        return None

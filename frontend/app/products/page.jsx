@@ -53,9 +53,7 @@ export default function ProductsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6">
           {products.map((product) => {
-            // ✅ get main image
-            const mainMedia = product.media?.find((m) => m.is_main);
-            const imageUrl = mainMedia?.media;
+
 
             return (
               <div
@@ -63,13 +61,13 @@ export default function ProductsPage() {
                 className="bg-white rounded-xl shadow hover:shadow-lg transition p-4"
               >
                 {/* ✅ Image from media */}
-                {imageUrl && (
+
                   <img
-                    src={imageUrl}
+                    src={product.main_media || "/placeholder.png"}
                     alt={product.title}
                     className="h-72 w-full rounded-lg mb-4 object-cover"
                   />
-                )}
+
 
                 <h2 className="text-lg font-semibold mb-1 text-black capitalize">
                   {product.title}
